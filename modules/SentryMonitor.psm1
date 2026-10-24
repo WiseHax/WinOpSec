@@ -263,4 +263,46 @@ function Test-ActiveEavesdropping {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping
+function Get-UsbHardwareSnapshot {
+    $devices = [System.Collections.Generic.HashSet[string]]::new()
+    if (-not (Test-IsWindowsOS)) { return $devices }
+
+    try {
+        $usbKeys = Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB' -ErrorAction SilentlyContinue
+        foreach ($k in $usbKeys) {
+            $devices.Add($k.PSChildName) | Out-Null
+        }
+    } catch {}
+
+    try {
+        $drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType.ToString() -eq "Removable" -and $_.IsReady }
+        foreach ($d in $drives) {
+            $devices.Add("DRIVE_" + $d.Name.TrimEnd("\")) | Out-Null
+        }
+    } catch {}
+
+    return $devices
+}
+
+function Test-UsbPerimeter {
+    param([System.Collections.Generic.HashSet[string]]$BaselineUsbSet)
+
+    $alerts = @()
+    if (-not $BaselineUsbSet) { return $alerts }
+
+    $currentUsb = Get-UsbHardwareSnapshot
+    foreach ($dev in $currentUsb) {
+        if (-not $BaselineUsbSet.Contains($dev)) {
+            $alerts += [PSCustomObject]@{
+                Severity = "CRITICAL"
+                Type     = "ROGUE_USB_INSERTION"
+                Target   = $dev
+                Detail   = "Unauthorized physical USB device detected ($dev)! Potential Rubber Ducky / BadUSB injector."
+            }
+        }
+    }
+
+    return $alerts
+}
+
+Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot
