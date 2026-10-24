@@ -177,6 +177,19 @@ function Audit-Telemetry {
             Status   = if ($dmaUnderLock -eq 1) { "HARDENED" } else { "EXPOSED" }
             Details  = if ($dmaUnderLock -eq 1) { "locked (external Thunderbolt/PCIe DMA blocked)" } else { "unprotected (DMA hardware raid risk) [risk:high]" }
         }
+
+        # UEFI WPBT Firmware Binary Injection Guard
+        $wpbt = $null
+        if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager") {
+            $smProps = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name "DisableWpbtExecution" -ErrorAction SilentlyContinue
+            if ($smProps) { $wpbt = $smProps.DisableWpbtExecution }
+        }
+        $results += [PSCustomObject]@{
+            Category = "HostOpSec"
+            Check    = "UEFI WPBT Firmware Execution"
+            Status   = if ($wpbt -eq 1) { "HARDENED" } else { "EXPOSED" }
+            Details  = if ($wpbt -eq 1) { "disabled (OEM firmware backdoor blocked)" } else { "unrestricted (motherboard ROM injection allowed) [risk:med]" }
+        }
     } elseif ($IsMacOS) {
         $diagAuto = (defaults read "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist" AutoSubmit 2>$null)
         $results += [PSCustomObject]@{
@@ -316,6 +329,13 @@ function Harden-Telemetry {
             if (-not (Test-Path $fvePath)) { New-Item -Path $fvePath -Force | Out-Null }
             Set-ItemProperty -Path $fvePath -Name "DisableExternalDMAUnderLock" -Type DWord -Value 1 -Force
             Write-Host "  ok  disable_external_dma_under_lock = 1 (anti-PCILeech physical DMA defense)" -ForegroundColor Green
+
+            # Block UEFI WPBT (Windows Platform Binary Table) firmware-level code injection
+            $sessionMgr = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
+            if (Test-Path $sessionMgr) {
+                Set-ItemProperty -Path $sessionMgr -Name "DisableWpbtExecution" -Type DWord -Value 1 -Force
+                Write-Host "  ok  disable_wpbt_execution = 1 (motherboard firmware backdoor blocked)" -ForegroundColor Green
+            }
 
             # Anti-Forensic Memory & Execution Tracing Shield (Prefetch, Superfetch, Hibernation, ClearPageFile)
             $memMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
