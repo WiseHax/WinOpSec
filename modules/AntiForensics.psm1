@@ -93,6 +93,20 @@ function Audit-Traces {
             Count    = "$dumpCount files"
             Status   = if ($dumpCount -eq 0) { "CLEAN" } else { "EXPOSED" }
         }
+
+        # Program Compatibility Assistant (PCA) Plaintext Execution Log
+        $pcaDic = "C:\Windows\appcompat\pca\PcaAppLaunchDic.txt"
+        $pcaCount = 0
+        if (Test-Path $pcaDic -ErrorAction SilentlyContinue) {
+            $pcaLines = Get-Content $pcaDic -ErrorAction SilentlyContinue
+            if ($pcaLines) { $pcaCount = @($pcaLines).Count }
+        }
+        $results += [PSCustomObject]@{
+            Artifact = "PCA App Execution Log"
+            Location = "C:\Windows\appcompat\pca\..."
+            Count    = "$pcaCount entries"
+            Status   = if ($pcaCount -eq 0) { "CLEAN" } else { "EXPOSED" }
+        }
     } else {
         $uHome = Get-UserHome
         foreach ($shFile in @(".bash_history", ".zsh_history", ".python_history", ".lesshst")) {
@@ -249,6 +263,9 @@ function Clear-ExplorerTraces {
             Write-Host "  ok  purged Windows Timeline ActivitiesCache.db" -ForegroundColor Green
         }
 
+        # Purge Windows 11 Program Compatibility Assistant (PCA) plaintext execution logs
+        Invoke-PcaWipe
+
         # Clear Kernel ShimCache (AppCompatCache) & BAM (Background Activity Moderator)
         try {
             $shimKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
@@ -324,6 +341,40 @@ function Clear-ExplorerTraces {
             resolvectl flush-caches 2>$null
             Write-Host "  ok  flushed local resolver cache" -ForegroundColor Green
         }
+    }
+}
+
+function Invoke-PcaWipe {
+    if (-not (Test-IsWindowsOS)) { return }
+    try {
+        # Stop and disable PcaSvc service
+        sc.exe stop PcaSvc 2>$null | Out-Null
+        $pcaKey = "HKLM:\SYSTEM\CurrentControlSet\Services\PcaSvc"
+        if (Test-Path $pcaKey) {
+            Set-ItemProperty -Path $pcaKey -Name "Start" -Type DWord -Value 4 -Force -ErrorAction SilentlyContinue
+        }
+
+        # Shred plaintext execution logs
+        $pcaDir = "C:\Windows\appcompat\pca"
+        if (Test-Path $pcaDir) {
+            foreach ($pcaFile in @("PcaAppLaunchDic.txt", "PcaGeneralDb0.txt", "PcaGeneralDb1.txt")) {
+                $fullPath = Join-Path $pcaDir $pcaFile
+                if (Test-Path $fullPath) {
+                    try {
+                        [System.IO.File]::WriteAllBytes($fullPath, [byte[]]@())
+                        Remove-Item -Path $fullPath -Force -ErrorAction SilentlyContinue
+                    } catch {}
+                    # Recreate as locked 0-byte dummy file
+                    try {
+                        New-Item -Path $fullPath -ItemType File -Force -ErrorAction SilentlyContinue | Out-Null
+                        Set-ItemProperty -Path $fullPath -Name Attributes -Value ([System.IO.FileAttributes]::ReadOnly) -ErrorAction SilentlyContinue
+                    } catch {}
+                }
+            }
+            Write-Host "  ok  purged PCA plaintext launch dictionaries & enforced zero-byte lockdown" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  !!  pca purge failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 }
 
@@ -556,5 +607,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe
 
