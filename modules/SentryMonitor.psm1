@@ -430,4 +430,190 @@ function Test-ReverseShellIntegrity {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot, Test-DnsHijack, Test-WifiPerimeter, Test-ReverseShellIntegrity
+function Invoke-SentryDefensiveAction {
+    param(
+        [array]$Threats,
+        [switch]$AutoPanic
+    )
+
+    if ($Threats.Count -eq 0) { return }
+
+    try { [Console]::Beep(2200, 300) } catch {}
+
+    if ($AutoPanic) {
+        Write-Host "`n  [CRITICAL AUTO-DEFENSE ENGAGED]" -ForegroundColor Red
+        Write-Host "  Triggering immediate network severance & workstation lockdown..." -ForegroundColor Yellow
+
+        try {
+            if (Test-IsWindowsOS) {
+                Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" } | Disable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue
+                route delete 0.0.0.0 2>$null | Out-Null
+            }
+        } catch {}
+
+        try {
+            rundll32.exe user32.dll,LockWorkStation
+        } catch {}
+
+        Write-Host "  Workstation locked. Network severed." -ForegroundColor Red
+    }
+}
+
+function Audit-SentryPosture {
+    $results = @()
+
+    $gw = Get-DefaultGatewayInfo
+    $gwMacStatus = if ($gw.GatewayMAC) { "HARDENED" } else { "CONFIGURABLE" }
+    $gwMacDetail = if ($gw.GatewayMAC) { "$($gw.GatewayIP) ($($gw.GatewayMAC))" } else { "No active gateway or virtualized adapter" }
+    $results += [PSCustomObject]@{
+        Status  = $gwMacStatus
+        Check   = "Gateway ARP Baseline"
+        Details = $gwMacDetail
+    }
+
+    $arpTable = Get-ArpTableSnapshot
+    $arpCollisions = 0
+    foreach ($k in $arpTable.Keys) {
+        if ($arpTable[$k].Count -gt 1) { $arpCollisions++ }
+    }
+    $arpStatus = if ($arpCollisions -eq 0) { "CLEAN" } else { "FAIL" }
+    $results += [PSCustomObject]@{
+        Status  = $arpStatus
+        Check   = "ARP Table Collision Check"
+        Details = if ($arpCollisions -eq 0) { "Zero duplicate MAC anomalies detected" } else { "$arpCollisions duplicate MAC collisions found!" }
+    }
+
+    $micConsent = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone" -ErrorAction SilentlyContinue
+    $camConsent = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam" -ErrorAction SilentlyContinue
+    $sensorLock = ($micConsent.Value -eq "Deny" -or $camConsent.Value -eq "Deny")
+    $results += [PSCustomObject]@{
+        Status  = if ($sensorLock) { "HARDENED" } else { "CONFIGURABLE" }
+        Check   = "Sensor Hardware Lockdown"
+        Details = if ($sensorLock) { "Microphone/Webcam global consent blocked" } else { "Sensors open (allowed for user apps)" }
+    }
+
+    $activeEaves = Test-ActiveEavesdropping
+    $eavesStatus = if ($activeEaves.Count -eq 0) { "CLEAN" } else { "FAIL" }
+    $results += [PSCustomObject]@{
+        Status  = $eavesStatus
+        Check   = "Live Eavesdropping Sentinel"
+        Details = if ($activeEaves.Count -eq 0) { "No active audio/video surveillance streams" } else { "$($activeEaves.Count) active recording processes detected!" }
+    }
+
+    $usbSet = Get-UsbHardwareSnapshot
+    $results += [PSCustomObject]@{
+        Status  = "HARDENED"
+        Check   = "USB Perimeter Tripwire"
+        Details = "$($usbSet.Count) baseline USB devices registered"
+    }
+
+    return $results
+}
+
+function Invoke-SentryMonitor {
+    [CmdletBinding()]
+    param(
+        [int]$IntervalSec = 2,
+        [switch]$AutoPanic,
+        [switch]$AudioAlert,
+        [switch]$SinglePass
+    )
+
+    if (-not (Test-IsWindowsOS)) {
+        Write-Host "  [!] Real-Time Public Sentry is supported on Windows hosts." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "`n  ================================================================" -ForegroundColor Cyan
+    Write-Host "  [+] INITIALIZING WINOPSEC PUBLIC DEFENSIVE SENTRY & TRIPWIRE..." -ForegroundColor Cyan
+    Write-Host "  ================================================================" -ForegroundColor Cyan
+    Write-Host "  threat model : Public Wi-Fi / Hostile LAN (MITM, SYN Scan, Rogue AP, Mic Tap, BadUSB)" -ForegroundColor DarkGray
+    Write-Host "  interval     : Every $IntervalSec seconds" -ForegroundColor DarkGray
+    Write-Host "  autopanic    : $(if ($AutoPanic) { 'ENABLED (Instant Net Sever & Screen Lock)' } else { 'DISABLED (Alert Only)' })" -ForegroundColor $(if ($AutoPanic) { 'Red' } else { 'DarkGray' })
+    Write-Host ""
+
+    Write-Host "  [*] Baselining Default Gateway..." -ForegroundColor DarkGray
+    $gw = Get-DefaultGatewayInfo
+    $baseGwIp  = $gw.GatewayIP
+    $baseGwMac = $gw.GatewayMAC
+    Write-Host "      Gateway IP  : $(if ($baseGwIp) { $baseGwIp } else { 'None/VPN' })" -ForegroundColor White
+    Write-Host "      Gateway MAC : $(if ($baseGwMac) { $baseGwMac } else { 'Unknown/Dynamic' })" -ForegroundColor White
+
+    Write-Host "  [*] Baselining USB Perimeter..." -ForegroundColor DarkGray
+    $baseUsb = Get-UsbHardwareSnapshot
+    Write-Host "      Baseline USB Devices: $($baseUsb.Count) attached" -ForegroundColor White
+
+    Write-Host "  [*] Baselining Wi-Fi Access Point..." -ForegroundColor DarkGray
+    $currentBssid = $null
+    $bssidRef = [ref]$currentBssid
+    Test-WifiPerimeter -CurrentBssidRef $bssidRef | Out-Null
+    Write-Host "      Active BSSID: $(if ($bssidRef.Value) { $bssidRef.Value } else { 'Ethernet/VPN/Container' })" -ForegroundColor White
+
+    Write-Host "`n  [+] SENTRY ACTIVE. Watching perimeter... (Press [Ctrl+C] or 'q' to stop)`n" -ForegroundColor Green
+
+    $cycle = 0
+
+    while ($true) {
+        $cycle++
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $allThreats = @()
+
+        $arpThreats = Test-ArpPoisoning -BaselineGatewayIP $baseGwIp -BaselineGatewayMAC $baseGwMac
+        $allThreats += $arpThreats
+
+        $scanThreats = Test-PortScanActivity
+        $allThreats += $scanThreats
+
+        $sensorThreats = Test-ActiveEavesdropping
+        $allThreats += $sensorThreats
+
+        $usbThreats = Test-UsbPerimeter -BaselineUsbSet $baseUsb
+        $allThreats += $usbThreats
+
+        $dnsThreats = Test-DnsHijack
+        $allThreats += $dnsThreats
+
+        $revThreats = Test-ReverseShellIntegrity
+        $allThreats += $revThreats
+
+        $wifiThreats = Test-WifiPerimeter -CurrentBssidRef $bssidRef
+        $allThreats += $wifiThreats
+
+        if ($allThreats.Count -gt 0) {
+            Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) TRIGGERED!" -ForegroundColor Red
+            foreach ($t in $allThreats) {
+                $color = if ($t.Severity -eq "CRITICAL") { "Red" } else { "Yellow" }
+                Write-Host ("  [{0,-8}] {1,-28} | {2}" -f $t.Severity, $t.Type, $t.Detail) -ForegroundColor $color
+            }
+
+            if ($AudioAlert -or $AutoPanic) {
+                try { [Console]::Beep(2000, 250) } catch {}
+            }
+
+            if ($AutoPanic) {
+                Invoke-SentryDefensiveAction -Threats $allThreats -AutoPanic:$true
+                break
+            }
+        } else {
+            $gwTag = if ($baseGwMac) { "$baseGwIp ($baseGwMac)" } else { "VPN/Isolated" }
+            Write-Host ("`r  [{0}] [SECURE] GW: {1} | USB: {2} | Sockets: Clean | Sensors: Idle (Cycle #{3})" -f $timestamp, $gwTag, $baseUsb.Count, $cycle) -ForegroundColor DarkGray -NoNewline
+        }
+
+        if ($SinglePass) {
+            Write-Host ""
+            return $allThreats
+        }
+
+        if ([Console]::KeyAvailable) {
+            $key = [Console]::ReadKey($true)
+            if ($key.KeyChar -eq 'q' -or $key.Key -eq [ConsoleKey]::Escape) {
+                Write-Host "`n`n  [+] Sentry disarmed by operator." -ForegroundColor Cyan
+                break
+            }
+        }
+
+        Start-Sleep -Seconds $IntervalSec
+    }
+}
+
+Export-ModuleMember -Function Audit-SentryPosture, Invoke-SentryMonitor, Test-ArpPoisoning, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Test-DnsHijack, Test-ReverseShellIntegrity, Test-WifiPerimeter
