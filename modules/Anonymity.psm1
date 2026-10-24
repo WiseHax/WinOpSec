@@ -96,6 +96,19 @@ function Audit-Anonymity {
             Status   = if ($camVal -eq "Deny") { "HARDENED" } else { "EXPOSED" }
             Details  = if ($camVal -eq "Deny") { "deny (locked)" } else { "allow" }
         }
+
+        # 5. NetworkList Wi-Fi BSSID / Geolocation History
+        $nlCount = 0
+        if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles") {
+            $nlCount = @(Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles" -ErrorAction SilentlyContinue).Count
+        }
+        $nlHardened = ($nlCount -eq 0)
+        $results += [PSCustomObject]@{
+            Category = "Anonymity"
+            Check    = "Wi-Fi BSSID / NetworkList History"
+            Status   = if ($nlHardened) { "HARDENED" } else { "EXPOSED" }
+            Details  = if ($nlHardened) { "clean (no WiGLE geolocation traces)" } else { "$nlCount saved networks (WiGLE traceable) [risk:high]" }
+        }
     } elseif ($IsMacOS) {
         $locEnabled = (defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>$null)
         $results += [PSCustomObject]@{
@@ -407,4 +420,53 @@ function Invoke-MacSpoof {
     }
 }
 
-Export-ModuleMember -Function Audit-Anonymity, Harden-Anonymity, Invoke-MacSpoof
+function Invoke-NetworkListScrub {
+    if (-not (Test-IsWindowsOS)) { return }
+    if (-not (Test-AdminPrivilege)) {
+        Write-Host "  [!] Scrubbing NetworkList Wi-Fi profiles requires administrator privileges." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  -- scrubbing NetworkList Wi-Fi profiles & physical geolocation BSSIDs..." -ForegroundColor Cyan
+    try {
+        # Purge all saved WLAN profiles from netsh
+        netsh wlan delete profile name=* 2>$null | Out-Null
+
+        # Purge NetworkList Profiles & Signatures
+        foreach ($nlKey in @(
+            "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles",
+            "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Unmanaged",
+            "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Managed"
+        )) {
+            if (Test-Path $nlKey) {
+                Get-ChildItem -Path $nlKey -ErrorAction SilentlyContinue | ForEach-Object {
+                    Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        Write-Host "  ok  purged NetworkList profiles & WLAN connection histories (defeats WiGLE triangulation)" -ForegroundColor Green
+    } catch {
+        Write-Host "  !!  NetworkList scrub failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+function Invoke-UsbHistoryScrub {
+    if (-not (Test-IsWindowsOS)) { return }
+    if (-not (Test-AdminPrivilege)) {
+        Write-Host "  [!] USB history scrubbing requires administrator privileges." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  -- scrubbing USBSTOR enumeration history..." -ForegroundColor Cyan
+    try {
+        $usbStorKey = "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR"
+        if (Test-Path $usbStorKey) {
+            Get-ChildItem -Path $usbStorKey -ErrorAction SilentlyContinue | ForEach-Object {
+                Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "  ok  cleared USBSTOR hardware enumeration registry keys" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  !!  USB history purge failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+Export-ModuleMember -Function Audit-Anonymity, Harden-Anonymity, Invoke-MacSpoof, Invoke-NetworkListScrub, Invoke-UsbHistoryScrub
