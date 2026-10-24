@@ -2,6 +2,19 @@
 # WinOpSec Defensive Suite
 
 $script:TtsEngine = $null
+$script:AudioPlayer = $null
+
+function Get-AudioPlayer {
+    if ($script:AudioPlayer) { return $script:AudioPlayer }
+    try {
+        Add-Type -AssemblyName PresentationCore -ErrorAction Stop
+        $script:AudioPlayer = New-Object System.Windows.Media.MediaPlayer
+        $script:AudioPlayer.Volume = 1.0
+        return $script:AudioPlayer
+    } catch {
+        return $null
+    }
+}
 
 function Get-TtsVoiceEngine {
     if ($script:TtsEngine) { return $script:TtsEngine }
@@ -43,6 +56,48 @@ function Get-TtsVoiceEngine {
             return $null
         }
     }
+}
+
+function Play-OpSecAudioClip {
+    param(
+        [string]$ClipName,
+        [string]$FallbackText
+    )
+
+    $audioDir = Join-Path (Split-Path $PSScriptRoot -Parent) "assets\audio"
+    $clipPath = Join-Path $audioDir $ClipName
+
+    if (Test-Path $clipPath) {
+        try {
+            $player = Get-AudioPlayer
+            if ($player) {
+                $player.Stop()
+                $player.Close()
+                $uri = New-Object System.Uri((Resolve-Path $clipPath).Path)
+                $player.Open($uri)
+                $player.Volume = 1.0
+                $player.Play()
+                return @{ Type = "MediaPlayer"; File = $clipPath }
+            }
+        } catch {}
+    }
+
+    # Fallback to SAPI voice synthesizer if audio file is missing
+    if ($FallbackText) {
+        Speak-Narration -Text $FallbackText
+        return @{ Type = "SAPI"; File = $null }
+    }
+    return $null
+}
+
+function Stop-OpSecAudio {
+    try {
+        if ($script:AudioPlayer) {
+            $script:AudioPlayer.Stop()
+            $script:AudioPlayer.Close()
+        }
+    } catch {}
+    Stop-Narration
 }
 
 function Speak-Narration {
@@ -91,6 +146,20 @@ function Test-VoiceOutput {
     Write-Host "`n  -- voice audio diagnostics ---------------------------------" -ForegroundColor DarkGray
     Write-Host "  initializing sound output pipeline..." -ForegroundColor Gray
     
+    $audioDir = Join-Path (Split-Path $PSScriptRoot -Parent) "assets\audio"
+    $hasClips = Test-Path (Join-Path $audioDir "intro_hello.mp3")
+
+    if ($hasClips) {
+        Write-Host "  [PASS] Neural Audio: Loaded from assets\audio (Sanitized PCM/MP3)" -ForegroundColor Green
+        Write-Host "  [PASS] Audio Pipeline: PresentationCore.MediaPlayer" -ForegroundColor Green
+        Write-Host "  playing neural audio sample through laptop speakers..." -ForegroundColor DarkGray
+        Play-SubtleTone -Freq 1000 -DurationMs 70
+        $handle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Audio check complete."
+        $null = Wait-AudioPlaybackFinish -PlayHandle $handle -MaxMs 15000 -AllowSkip
+        Write-Host "  [DONE] Neural voice audio test finished.`n" -ForegroundColor Green
+        return
+    }
+
     $tts = Get-TtsVoiceEngine
     if (-not $tts) {
         Write-Host "  [FAIL] No speech synthesizer found on host." -ForegroundColor Red
@@ -166,20 +235,28 @@ function Write-AnimatedLine {
     if (-not $NoNewline) { Write-Host "" }
 }
 
-function Wait-NarrationFinish {
+function Wait-AudioPlaybackFinish {
     param(
+        [hashtable]$PlayHandle,
         [int]$MaxMs = 30000,
         [switch]$AllowSkip
     )
 
-    $tts = Get-TtsVoiceEngine
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
-    Start-Sleep -Milliseconds 120
+    Start-Sleep -Milliseconds 150
 
     while ($sw.ElapsedMilliseconds -lt $MaxMs) {
-        if ($tts -and $tts.Type -eq "SAPI") {
-            if ($tts.Engine.WaitUntilDone(150)) { break }
+        if ($PlayHandle -and $PlayHandle.Type -eq "MediaPlayer" -and $script:AudioPlayer) {
+            if ($script:AudioPlayer.NaturalDuration.HasTimeSpan) {
+                $pos = $script:AudioPlayer.Position.TotalSeconds
+                $dur = $script:AudioPlayer.NaturalDuration.TimeSpan.TotalSeconds
+                if ($pos -ge $dur -and $pos -gt 0.5) { break }
+            }
+        } elseif ($PlayHandle -and $PlayHandle.Type -eq "SAPI") {
+            $tts = Get-TtsVoiceEngine
+            if ($tts -and $tts.Type -eq "SAPI") {
+                if ($tts.Engine.WaitUntilDone(150)) { break }
+            }
         } else {
             Start-Sleep -Milliseconds 150
         }
@@ -188,14 +265,15 @@ function Wait-NarrationFinish {
             $k = Read-ConsoleKeyIfAvailable
             if ($k) {
                 if ($k.Key -eq [ConsoleKey]::Escape) {
-                    Stop-Narration
+                    Stop-OpSecAudio
                     return "SkipAll"
                 } elseif ($k.Key -eq [ConsoleKey]::Spacebar -or $k.Key -eq [ConsoleKey]::Enter) {
-                    Stop-Narration
+                    Stop-OpSecAudio
                     return "SkipStep"
                 }
             }
         }
+        Start-Sleep -Milliseconds 80
     }
 
     Start-Sleep -Milliseconds 350
@@ -242,8 +320,9 @@ function Invoke-CyberIntro {
     Play-SubtleTone -Freq 800 -DurationMs 60
     Play-SubtleTone -Freq 1100 -DurationMs 75
 
+    $introHandle = $null
     if (-not $VoiceMute) {
-        Speak-Narration -Text "Listen up. Don't act like a clueless script kiddie running tools without understanding basic operational security. Pay attention to these rules so you don't get compromised."
+        $introHandle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Listen up. Don't act like a clueless script kiddie running tools without understanding basic operational security. Pay attention to these rules so you don't get compromised."
     }
 
     Write-AnimatedLine -Text "  > hello." -CharDelayMs $delay -Color Gray
@@ -252,7 +331,9 @@ function Invoke-CyberIntro {
     Start-Sleep -Milliseconds 120
     Write-AnimatedLine -Text "  > don't be a script kiddie. opsec rules online." -CharDelayMs $delay -Color Green
 
-    $null = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
+    if ($introHandle) {
+        $null = Wait-AudioPlaybackFinish -PlayHandle $introHandle -MaxMs 30000 -AllowSkip
+    }
 
     Write-Host ""
     Play-SubtleTone -Freq 1300 -DurationMs 70
@@ -263,6 +344,7 @@ function Invoke-CyberIntro {
         @{
             Number  = "1"
             Title   = "PUBLIC WI-FI: Stop acting like open networks are safe"
+            Clip    = "rule1_wifi.mp3"
             Voice   = "Rule number one: Stop acting like public Wi-Fi is harmless. Connecting to coffee shop or airport Wi-Fi with a raw MAC address and no VPN is pure amateur hour. Any script kiddie with Bettercap can hijack your session cookies in three seconds. Spoof your MAC and lock your tunnel with Cafe Mode before you touch a browser."
             Mistake = "Connecting raw to cafe or airport Wi-Fi without VPN and spoofed MAC."
             Threat  = "Any skid with an ARP-poisoning tool can hijack your sessions in seconds."
@@ -272,6 +354,7 @@ function Invoke-CyberIntro {
         @{
             Number  = "2"
             Title   = "CREDENTIALS & MEMORY: Storing plaintext secrets on disk is idiotic"
+            Clip    = "rule2_creds.mp3"
             Voice   = "Rule number two: Storing plaintext passwords, API tokens, or private keys on your desktop is idiotic. Leaving LSASS memory unprotected lets even the most basic infostealer dump your credentials in half a second. Apply host lockdown to isolate LSASS in kernel memory so malware gets zero passwords."
             Mistake = "Leaving .env files, private keys, or API tokens on your desktop."
             Threat  = "Infostealers dump LSASS memory and scrape plaintext keys in under 2 seconds."
@@ -281,6 +364,7 @@ function Invoke-CyberIntro {
         @{
             Number  = "3"
             Title   = "HARDWARE ATTACKS: Never plug in unknown flash drives like a rookie"
+            Clip    = "rule3_usb.mp3"
             Voice   = "Rule number three: Don't be that clown who plugs in random USB drives found on the street or lets strangers touch your ports. BadUSB devices act like a keyboard on steroids, typing reverse shells before you can even blink. Keep Sentry active, or arm DeadMan if you are in hostile physical territory."
             Mistake = "Plugging in random USB sticks or leaving laptop ports unguarded."
             Threat  = "BadUSB hardware injects 500 keystrokes per second to spawn instant reverse shells."
@@ -290,6 +374,7 @@ function Invoke-CyberIntro {
         @{
             Number  = "4"
             Title   = "FORENSIC ARTIFACTS: Incognito mode will not save you, amateur"
+            Clip    = "rule4_pca.mp3"
             Voice   = "Rule number four: Incognito mode will not save you, amateur. Closing your browser only clears cookies; Windows secretly logs every single program you launch in PCA files and records every folder you browse in ShellBags. Always wipe PCA and ShellBags when your session is done."
             Mistake = "Assuming private browsing leaves zero footprints on your system."
             Threat  = "Windows 11 secretly logs every .exe in PCA files and folders in ShellBags."
@@ -299,6 +384,7 @@ function Invoke-CyberIntro {
         @{
             Number  = "5"
             Title   = "FORENSIC DECEPTION: A totally clean machine is an amateur dead giveaway"
+            Clip    = "rule5_chameleon.mp3"
             Voice   = "Rule number five: Don't be an idiot and wipe your machine completely clean. Digital forensics experts immediately flag a totally empty laptop as Evidence of Absence. A clean drive screams that you have something to hide. Deploy Chameleon to blend in with normal civilian activity."
             Mistake = "Zeroing every file and log, leaving a suspicious blank slate."
             Threat  = "Forensics examiners flag an empty laptop immediately as Evidence of Absence."
@@ -308,8 +394,9 @@ function Invoke-CyberIntro {
         @{
             Number  = "6"
             Title   = "AUTOMATION: Don't guess commands like a clueless script kiddie"
+            Clip    = "rule6_automation.mp3"
             Voice   = "Rule number six: Don't guess commands like a clueless script kiddie when adrenaline is pumping. Just type quick. One click handles the defense automatically so you don't screw it up."
-            Mistake = "Trying to memorize dozens of flags and botching the syntax under stress."
+            Mistake = "Trying to remember dozens of flags and botching the syntax under stress."
             Threat  = "One typo or missing killswitch flag leaves your real identity exposed."
             Fix     = "Type 'quick' for 1-click execution of automated defensive profiles."
             Command = "quick"
@@ -332,8 +419,9 @@ function Invoke-CyberIntro {
             continue
         }
 
+        $stepHandle = $null
         if (-not $VoiceMute) {
-            Speak-Narration -Text $r.Voice
+            $stepHandle = Play-OpSecAudioClip -ClipName $r.Clip -FallbackText $r.Voice
         }
 
         Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
@@ -346,15 +434,20 @@ function Invoke-CyberIntro {
         Write-Host "      command      : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$($r.Command)" -ForegroundColor Green
 
-        $skipState = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
-        if ($skipState -eq "SkipAll") {
-            $interruptedAll = $true
-            Stop-Narration
+        if ($stepHandle) {
+            $skipState = Wait-AudioPlaybackFinish -PlayHandle $stepHandle -MaxMs 30000 -AllowSkip
+            if ($skipState -eq "SkipAll") {
+                $interruptedAll = $true
+                Stop-OpSecAudio
+            }
         }
     }
 
     if (-not $VoiceMute -and -not $interruptedAll) {
-        Speak-Narration -Text "Briefing finished. Stop doing stupid shit on the net. Type quick to begin, or press enter for the main console."
+        $outroHandle = Play-OpSecAudioClip -ClipName "outro.mp3" -FallbackText "Briefing finished. Stop doing stupid shit on the net. Type quick to begin, or press enter for the main console."
+        if ($outroHandle) {
+            $null = Wait-AudioPlaybackFinish -PlayHandle $outroHandle -MaxMs 15000 -AllowSkip
+        }
     }
 
     Write-Host "`n  ------------------------------------------------------------------" -ForegroundColor DarkGray
@@ -365,7 +458,7 @@ function Invoke-CyberIntro {
             $null = [Console]::ReadKey($true)
         }
     } catch {}
-    Stop-Narration
+    Stop-OpSecAudio
     Write-Host "`n"
 }
 
