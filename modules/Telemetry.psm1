@@ -164,6 +164,19 @@ function Audit-Telemetry {
             Status   = if ($hiberClean) { "HARDENED" } else { "EXPOSED" }
             Details  = if ($hiberClean) { "disabled (zero RAM dump on shutdown)" } else { "active (hiberfil.sys memory bleed risk)" }
         }
+
+        # External DMA Port Guard (Anti-PCILeech / Thunderbolt Hardware Raid Defense)
+        $dmaUnderLock = $null
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE") {
+            $fveProps = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE" -Name "DisableExternalDMAUnderLock" -ErrorAction SilentlyContinue
+            if ($fveProps) { $dmaUnderLock = $fveProps.DisableExternalDMAUnderLock }
+        }
+        $results += [PSCustomObject]@{
+            Category = "HostOpSec"
+            Check    = "External DMA Guard (Anti-PCILeech)"
+            Status   = if ($dmaUnderLock -eq 1) { "HARDENED" } else { "EXPOSED" }
+            Details  = if ($dmaUnderLock -eq 1) { "locked (external Thunderbolt/PCIe DMA blocked)" } else { "unprotected (DMA hardware raid risk) [risk:high]" }
+        }
     } elseif ($IsMacOS) {
         $diagAuto = (defaults read "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist" AutoSubmit 2>$null)
         $results += [PSCustomObject]@{
@@ -297,6 +310,12 @@ function Harden-Telemetry {
             if (-not (Test-Path $autoRunPath)) { New-Item -Path $autoRunPath -Force | Out-Null }
             Set-ItemProperty -Path $autoRunPath -Name "NoDriveTypeAutoRun" -Type DWord -Value 255 -Force
             Write-Host "  ok  lsass_ppl = 1, ntlmv2_only = 5, wdigest = 0, cached_logons = 0" -ForegroundColor Green
+
+            # Anti-PCILeech & External DMA Physical Port Defense
+            $fvePath = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
+            if (-not (Test-Path $fvePath)) { New-Item -Path $fvePath -Force | Out-Null }
+            Set-ItemProperty -Path $fvePath -Name "DisableExternalDMAUnderLock" -Type DWord -Value 1 -Force
+            Write-Host "  ok  disable_external_dma_under_lock = 1 (anti-PCILeech physical DMA defense)" -ForegroundColor Green
 
             # Anti-Forensic Memory & Execution Tracing Shield (Prefetch, Superfetch, Hibernation, ClearPageFile)
             $memMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
