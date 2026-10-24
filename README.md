@@ -19,7 +19,18 @@ Cross-platform operations security, Mullvad VPN partner integration, browser ant
 powershell ./WinOpSec.ps1
 ```
 
-Commands inside `opsec>` prompt (accepts number or command name):
+Commands inside `winopsec` console (organized into 5 Operational Pillars):
+
+### Guided 1-Click Scenarios
+- `quick` / `wizard` / `mode` — launches the interactive guided scenario wizard:
+  - `[1] Cafe / Public Wi-Fi Mode` — MAC spoof + Mullvad lock + Sentry with Auto-Panic
+  - `[2] Complete Host Lockdown` — Kernel PPL + LSASS guard + disable telemetry & leaks
+  - `[3] Secure Ephemeral Browsing` — Anti-WebRTC leak + ephemeral private browser session
+  - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
+  - `[5] Full Security Posture Audit` — Comprehensive 47-point benchmark scan
+- `guide <command>` — displays in-depth plain-language explanation of any feature (e.g. `guide sentry`, `guide chameleon`, `guide pca`)
+
+### Direct Pillar Commands
 - `1` / `audit` — full posture check (telemetry, LSASS/NTLM shield, kernel memory guard, sensors, network leaks, Mullvad/VPN tunnel, browser OpSec, PCA/ShellBags traces, FDE)
 - `2` / `telemetry` — disable OS telemetry, crash reporting, WDigest cleartext, anonymous SAM + enforce LSASS `RunAsPPL`, NTLMv2-only, `DisablePagingExecutive`, and destroy `hiberfil.sys`
 - `3` / `anon` — VPN-compatible geolocation kill (kills `lfsvc` & cloud location provider while muting Windows 11 24H2 WLAN popups for Mullvad & Proton VPN), blocks Recall/Copilot AI, locks Webcam/Mic, and enables Wi-Fi MAC randomization
