@@ -28,6 +28,7 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
   - `[3] Secure Ephemeral Browsing` — Anti-WebRTC leak + ephemeral private browser session
   - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
   - `[5] Full Security Posture Audit` — Comprehensive 47-point benchmark scan
+- `intro` / `tour` — launches animated cyber onboarding boot sequence with voice briefing & script-kiddie operator walkthrough
 - `guide <command>` — displays in-depth plain-language explanation of any feature (e.g. `guide sentry`, `guide chameleon`, `guide pca`)
 
 ### Direct Pillar Commands

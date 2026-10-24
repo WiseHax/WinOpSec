@@ -28,13 +28,14 @@ param (
     [switch]$ScanSecrets,
     [switch]$Panic,
     [switch]$Restore,
+    [switch]$Intro,
     [switch]$Help
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "IntroTour.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -257,6 +258,7 @@ function Show-Menu {
 
     Write-Host "`n  [!] DURESS & NAVIGATION" -ForegroundColor Red
     Write-Host "      quick           - Launch Guided Operational Scenario Wizard (Recommended)" -ForegroundColor Green
+    Write-Host "      intro / tour    - Play animated cyber onboarding with voice briefing" -ForegroundColor Magenta
     Write-Host "      guide <cmd>     - Explain what any feature does in simple human terms" -ForegroundColor DarkCyan
     Write-Host "      panic           - Emergency duress protocol: sever routes, wipe traces & lock" -ForegroundColor Red
     Write-Host "      panic -poweroff - Emergency hard poweroff with zero disk writes" -ForegroundColor DarkRed
@@ -452,6 +454,7 @@ if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
 if ($Panic)         { Write-Header; Invoke-PanicProtocol; exit }
 if ($Restore)       { Write-Header; Restore-OpSecState | Out-Null; exit }
+if ($Intro)         { Invoke-CyberIntro; exit }
 
 Clear-Host
 Write-Header
@@ -682,6 +685,12 @@ while ($true) {
             Write-Host ""
             Restore-OpSecState | Out-Null
             Write-Host ""
+        }
+        "^(intro|tour|hello|onboarding)$" {
+            Invoke-CyberIntro
+            Clear-Host
+            Write-Header
+            Show-Menu
         }
         "^(quick|wizard|mode|modes)$" {
             Invoke-GuidedWizard
