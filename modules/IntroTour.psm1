@@ -168,23 +168,27 @@ function Write-AnimatedLine {
 
 function Wait-NarrationFinish {
     param(
-        [int]$MaxMs = 6000,
+        [int]$MaxMs = 30000,
         [switch]$AllowSkip
     )
 
     $tts = Get-TtsVoiceEngine
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
+    Start-Sleep -Milliseconds 120
+
     while ($sw.ElapsedMilliseconds -lt $MaxMs) {
         if ($tts -and $tts.Type -eq "SAPI") {
-            # RunningState 1 = not speaking / done
-            if ($tts.Engine.Status.RunningState -eq 1) { break }
+            if ($tts.Engine.WaitUntilDone(150)) { break }
+        } else {
+            Start-Sleep -Milliseconds 150
         }
 
         if ($AllowSkip -and (Test-ConsoleKeyAvailable)) {
             $k = Read-ConsoleKeyIfAvailable
             if ($k) {
                 if ($k.Key -eq [ConsoleKey]::Escape) {
+                    Stop-Narration
                     return "SkipAll"
                 } elseif ($k.Key -eq [ConsoleKey]::Spacebar -or $k.Key -eq [ConsoleKey]::Enter) {
                     Stop-Narration
@@ -192,8 +196,9 @@ function Wait-NarrationFinish {
                 }
             }
         }
-        Start-Sleep -Milliseconds 60
     }
+
+    Start-Sleep -Milliseconds 350
     return "Done"
 }
 
@@ -232,98 +237,116 @@ function Invoke-CyberIntro {
     }
 
     Write-Host "  ------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  [press space or enter anytime to skip]`n" -ForegroundColor DarkGray
+    Write-Host "  [press space or enter to skip step, esc to skip all]`n" -ForegroundColor DarkGray
 
     Play-SubtleTone -Freq 800 -DurationMs 60
     Play-SubtleTone -Freq 1100 -DurationMs 75
 
     if (-not $VoiceMute) {
-        Speak-Narration -Text "Hello. Welcome to WinOpSec. Your defensive terminal is online."
+        Speak-Narration -Text "Welcome to WinOpSec. Before you begin, here is what you need to know so you do not compromise your own security."
     }
 
     Write-AnimatedLine -Text "  > hello." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
     Write-AnimatedLine -Text "  > welcome to winopsec." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
-    Write-AnimatedLine -Text "  > defensive posture active." -CharDelayMs $delay -Color Green
+    Write-AnimatedLine -Text "  > operator defensive briefing online." -CharDelayMs $delay -Color Green
 
-    $null = Wait-NarrationFinish -MaxMs 4500 -AllowSkip
+    $null = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
 
     Write-Host ""
     Play-SubtleTone -Freq 1300 -DurationMs 70
 
-    Write-Host "  -- operational briefing ------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  -- operational security rules: what NEVER to do ----------------" -ForegroundColor DarkGray
 
-    $pillars = @(
+    $rules = @(
         @{
-            Number    = "1"
-            Title     = "Host Hardening & Anti-Mimikatz"
-            Voice     = "Pillar one: Host Hardening. This blocks background telemetry and locks kernel memory so credentials cannot be stolen."
-            What      = "Kills background telemetry, disables WDigest, and locks LSASS in PPL memory."
-            Why       = "Stops credential dumpers like Mimikatz from harvesting plaintext passwords."
-            Command   = "2  or  harden-all"
+            Number  = "1"
+            Title   = "PUBLIC WI-FI: Never surf on open networks with raw interfaces"
+            Voice   = "Rule number one: Never use public Wi-Fi without locking your VPN and MAC address first. In a cafe or airport, anyone with an ARP-poisoning tool can intercept your session tokens. Always run Cafe Mode before you open a browser."
+            Mistake = "Connecting unprotected to cafe, airport, or hotel Wi-Fi."
+            Threat  = "Anyone on the LAN can run ARP poisoning, hijack DNS, or sniff session tokens."
+            Fix     = "Run Cafe Mode to spoof your MAC, lock Mullvad killswitch, and arm Sentry."
+            Command = "quick -> 1  or  sentry -autopanic"
         },
         @{
-            Number    = "2"
-            Title     = "VPN Tunnel Lock & Browser Shields"
-            Voice     = "Pillar two: VPN and Browser Shield. This locks your Mullvad tunnel and seals WebRTC leaks."
-            What      = "Enforces strict WFP killswitch, DAITA traffic shaping, and WebRTC privacy locks."
-            Why       = "Keeps your real IP and location hidden even if an app or browser crashes."
-            Command   = "mullvad harden  or  browser"
+            Number  = "2"
+            Title   = "CREDENTIALS & MEMORY: Never leave plaintext secrets on disk"
+            Voice   = "Rule number two: Never leave plaintext credentials on your machine, and never leave LSASS memory unprotected. Basic infostealers dump LSASS memory in seconds. Host lockdown isolates LSASS in kernel memory so credentials cannot be dumped."
+            Mistake = "Leaving .env files, private keys, or API tokens exposed on disk."
+            Threat  = "Malware and infostealers harvest tokens and dump plaintext passwords from LSASS."
+            Fix     = "Apply Host Lockdown to lock LSASS into kernel PPL and scan for exposed secrets."
+            Command = "2  or  harden-all"
         },
         @{
-            Number    = "3"
-            Title     = "Public Sentry & Tripwire"
-            Voice     = "Pillar three: Public Sentry. When you are on cafe or public Wi-Fi, this detects ARP spoofing and rogue attacks in real time."
-            What      = "Monitors 7 local attack vectors including ARP spoofing, port scans, and BadUSB."
-            Why       = "If someone attacks you on public Wi-Fi, auto-panic cuts the connection instantly."
-            Command   = "sentry -autopanic"
+            Number  = "3"
+            Title   = "HARDWARE ATTACKS: Never plug in unknown flash drives"
+            Voice   = "Rule number three: Never plug in untrusted USB drives or leave your ports unattended. BadUSB devices inject thousands of keystrokes the instant they connect. Keep Sentry active to alert on rogue USB devices, or arm DeadMan to panic if physical custody is lost."
+            Mistake = "Plugging in a random flash drive or leaving laptop ports unguarded."
+            Threat  = "BadUSB hardware registers as a keyboard and injects reverse shells in half a second."
+            Fix     = "Arm Sentry to detect rogue USB devices, or use BusKill lanyard (DeadMan)."
+            Command = "sentry  or  deadman"
         },
         @{
-            Number    = "4"
-            Title     = "Anti-Forensics & Chameleon Camouflage"
-            Voice     = "Pillar four: Anti-Forensics and Chameleon. This shreds execution traces and plants benign civilian files to defeat forensic analysis."
-            What      = "Shreds PCA logs, ShellBags, and injects realistic civilian decoy activity."
-            Why       = "An empty laptop is a forensic red flag. Chameleon blends your machine into the crowd."
-            Command   = "wipe  or  chameleon"
+            Number  = "4"
+            Title   = "FORENSIC ARTIFACTS: Never trust browser incognito mode alone"
+            Voice   = "Rule number four: Never assume closing your browser makes you private. Incognito mode only clears temporary cookies. Windows secretly logs every application in PCA dictionaries and every folder in ShellBags. Always run wipe-pca and wipe-shellbags."
+            Mistake = "Assuming private browsing leaves no traces on the computer."
+            Threat  = "Windows 11 logs every executable run in PCA files and every folder browsed in ShellBags."
+            Fix     = "Shred execution dictionaries and Explorer folder histories after your session."
+            Command = "wipe-pca  and  wipe-shellbags  (or 6 / wipe)"
         },
         @{
-            Number    = "5"
-            Title     = "1-Click Scenario Wizard"
-            Voice     = "Pillar five: The Quick Wizard. If you are unsure what commands to type, simply run quick for one-click automated defense."
-            What      = "Automated 1-click profiles for Cafe Wi-Fi, Host Lockdown, and Post-Session Clean."
-            Why       = "No memorization needed. Run quick, select a scenario, and defense is immediate."
-            Command   = "quick"
+            Number  = "5"
+            Title   = "FORENSIC DECEPTION: Never leave a suspiciously empty machine"
+            Voice   = "Rule number five: Don't make your computer look like a spy laptop. A completely wiped machine with zero recent files is a red flag to forensic investigators. Deploy civilian camouflage with Chameleon to blend into normal civilian noise."
+            Mistake = "Zeroing every log and file, creating a totally blank machine."
+            Threat  = "Forensics experts look for Evidence of Absence. A clean laptop screams you had something to hide."
+            Fix     = "Deploy realistic civilian noise (recipes, notes, recent links) using Chameleon."
+            Command = "chameleon"
+        },
+        @{
+            Number  = "6"
+            Title   = "AUTOMATION: Never guess commands when you are unsure"
+            Voice   = "Rule number six: Don't guess commands under pressure. If you are ever unsure what to type, simply run quick. One click applies all the defensive measures for your current situation."
+            Mistake = "Trying to remember dozens of complex terminal flags under stress."
+            Threat  = "Configuration mistakes or forgotten flags that leave defensive gaps open."
+            Fix     = "Use the 1-click Guided Scenario Wizard for instant, error-free defense profiles."
+            Command = "quick"
         }
     )
 
     $interruptedAll = $false
 
-    foreach ($p in $pillars) {
+    foreach ($r in $rules) {
         if ($interruptedAll) {
-            Write-Host "`n  [$($p.Number)] $($p.Title)" -ForegroundColor White
-            Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
-            Write-Host "$($p.What)" -ForegroundColor Gray
-            Write-Host "      why it cares: " -ForegroundColor DarkGray -NoNewline
-            Write-Host "$($p.Why)" -ForegroundColor DarkGray
-            Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
-            Write-Host "$($p.Command)" -ForegroundColor Green
+            Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
+            Write-Host "      blunder : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($r.Mistake)" -ForegroundColor Gray
+            Write-Host "      threat  : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($r.Threat)" -ForegroundColor DarkGray
+            Write-Host "      defense : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($r.Fix)" -ForegroundColor Gray
+            Write-Host "      command : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$($r.Command)" -ForegroundColor Green
             continue
         }
 
         if (-not $VoiceMute) {
-            Speak-Narration -Text $p.Voice
+            Speak-Narration -Text $r.Voice
         }
 
-        Write-Host "`n  [$($p.Number)] $($p.Title)" -ForegroundColor White
-        Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$($p.What)" -ForegroundColor Gray
-        Write-Host "      why it cares: " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$($p.Why)" -ForegroundColor DarkGray
-        Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$($p.Command)" -ForegroundColor Green
+        Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
+        Write-Host "      blunder : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$($r.Mistake)" -ForegroundColor Gray
+        Write-Host "      threat  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$($r.Threat)" -ForegroundColor DarkGray
+        Write-Host "      defense : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$($r.Fix)" -ForegroundColor Gray
+        Write-Host "      command : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$($r.Command)" -ForegroundColor Green
 
-        $skipState = Wait-NarrationFinish -MaxMs 6500 -AllowSkip
+        $skipState = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
         if ($skipState -eq "SkipAll") {
             $interruptedAll = $true
             Stop-Narration
@@ -331,7 +354,7 @@ function Invoke-CyberIntro {
     }
 
     if (-not $VoiceMute -and -not $interruptedAll) {
-        Speak-Narration -Text "Ready to proceed. Type quick to begin, or press enter for the main menu."
+        Speak-Narration -Text "You are ready. Type quick to begin, or press enter to access the console."
     }
 
     Write-Host "`n  ------------------------------------------------------------------" -ForegroundColor DarkGray
