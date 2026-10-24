@@ -1,4 +1,4 @@
-# winopsec v3.5
+# winopsec v3.8
 
 Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, kernel memory protection, and state-level anti-forensics utility.
 
@@ -47,6 +47,9 @@ Commands inside `opsec>` prompt (accepts number or command name):
 - `scrub-wifi` — wipe NetworkList saved Wi-Fi profiles and historical gateway BSSIDs (anti-WiGLE triangulation)
 - `wipe-tokens` — neutralize Telegram Desktop (`tdata`), Discord, Signal, and Slack active session auth tokens
 - `wipe-screenshots` — scrub Windows Snipping Tool (`ScreenSketch`) temporary buffers & Acropalypse recovery caches
+- `wipe-reglogs` — flush active registry transaction journals (`.LOG1`, `.LOG2`) to disk and sanitize orphan containers
+- `chameleon` — seed synthetic civilian activity, decoy documents & benign Recent links (defeats SANS "Too Clean Machine" / Evidence of Absence)
+- `chameleon -purge` — purge synthetic camouflage documents and revert to zero-state
 - `deadman` — arm USB Dead Man's Switch (monitors wrist-lanyard USB drive; triggers immediate panic/poweroff on physical pull)
 - `wipe-deleted` — purge VSS shadows, reset USN deletion logs, zero SRUM/Search databases & re-trim SSD (`wipe-deleted -cipher` for DoD 3-pass zeroing)
 - `wipe-logs` — purge all 400+ Windows event log channels (Security, System, App, ScriptBlock, WLAN)

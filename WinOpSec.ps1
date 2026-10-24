@@ -17,6 +17,9 @@ param (
     [string]$DeadManDrive,
     [switch]$WipeTokens,
     [switch]$WipeScreenshots,
+    [switch]$WipeRegLogs,
+    [switch]$Chameleon,
+    [switch]$PurgeChameleon,
     [string]$Scrub,
     [switch]$SpoofMac,
     [switch]$ScanSecrets,
@@ -28,7 +31,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -53,7 +56,7 @@ function Write-Header {
 
     Write-Host ""
     Write-Host "  winopsec " -ForegroundColor White -NoNewline
-    Write-Host "v3.2  //  cross-platform opsec, mullvad partner & browser shield" -ForegroundColor DarkGray
+    Write-Host "v3.8  //  cross-platform opsec, mullvad partner & browser shield" -ForegroundColor DarkGray
     Write-Host "  os   : " -ForegroundColor DarkGray -NoNewline
     Write-Host "$HostOS [$Arch]" -ForegroundColor Gray
     Write-Host "  priv : " -ForegroundColor DarkGray -NoNewline
@@ -127,6 +130,12 @@ function Invoke-Audit {
     $hwResults = Audit-HardwareIdentity
     foreach ($r in $hwResults) {
         Write-StatusRow -State $(if ($r.Status -eq "CLEAN") { "CLEAN" } else { "CONFIGURABLE" }) -Label $r.Artifact -Detail "$($r.Value) [risk:$($r.Risk)]"
+    }
+
+    Write-Host "`n  -- camouflage & plausible deniability" -ForegroundColor Cyan
+    $chamResults = Audit-ChameleonState
+    foreach ($r in $chamResults) {
+        Write-StatusRow -State $(if ($r.Posture -eq "CIVILIAN_CAMOUFLAGE") { "HARDENED" } else { "CONFIGURABLE" }) -Label $r.Profile -Detail "$($r.Posture) ($($r.Decoys))"
     }
 
     Write-Host "`n  -- disk encryption" -ForegroundColor Cyan
@@ -223,6 +232,9 @@ function Show-Menu {
     Write-Host "    scrub-wifi        purge NetworkList Wi-Fi profiles & BSSIDs (anti-WiGLE triangulation)"
     Write-Host "    wipe-tokens       neutralize Telegram, Discord, Signal & Slack desktop auth sessions"
     Write-Host "    wipe-screenshots  shred Windows Snipping Tool temp state & Acropalypse image caches"
+    Write-Host "    wipe-reglogs      flush active registry transaction journals (.LOG1, .LOG2) to disk"
+    Write-Host "    chameleon         seed synthetic civilian activity (defeats SANS 'Too Clean Machine')"
+    Write-Host "    chameleon -purge  purge synthetic camouflage documents and revert to zero-state"
     Write-Host "    deadman           arm USB Dead Man's Switch (instant panic on physical USB pull)"
     Write-Host "    wipe-deleted      purge VSS shadows, reset USN deletion logs & re-trim SSD ('wipe-deleted -cipher')"
     Write-Host "    wipe-logs         purge all 400+ Windows event logs (Security, System, PowerShell, WLAN)"
@@ -250,6 +262,9 @@ if ($RandomizeHwId)    { Write-Header; Invoke-HwIdRandomize; exit }
 if ($DeadMan)          { Write-Header; Invoke-DeadManSwitch -DriveLetter $DeadManDrive; exit }
 if ($WipeTokens)       { Write-Header; Invoke-TokenSanitize; exit }
 if ($WipeScreenshots)  { Write-Header; Invoke-ScreenshotCacheWipe; exit }
+if ($WipeRegLogs)      { Write-Header; Invoke-RegistryLogSanitize; exit }
+if ($Chameleon)        { Write-Header; Invoke-ChameleonNoise; exit }
+if ($PurgeChameleon)   { Write-Header; Invoke-ChameleonNoise -Purge; exit }
 if ($Scrub)            { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; exit }
 if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
@@ -434,6 +449,16 @@ while ($true) {
         "^(wipe-screenshots|screenshots|scrub-screenshots)$" {
             Write-Host ""
             Invoke-ScreenshotCacheWipe
+            Write-Host ""
+        }
+        "^(wipe-reglogs|reglogs|flush-registry)$" {
+            Write-Host ""
+            Invoke-RegistryLogSanitize
+            Write-Host ""
+        }
+        "^chameleon(\s+(-purge|purge))?$" {
+            Write-Host ""
+            Invoke-ChameleonNoise -Purge:($Matches[2] -ne $null)
             Write-Host ""
         }
         "^deadman(\s+(-drive\s+(\S+)|(\S+:)))?$" {
