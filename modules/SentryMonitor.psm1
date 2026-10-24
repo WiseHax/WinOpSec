@@ -305,4 +305,99 @@ function Test-UsbPerimeter {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot
+function Test-DnsHijack {
+    $alerts = @()
+    if (-not (Test-IsWindowsOS)) { return $alerts }
+
+    try {
+        $dnsList = @()
+        $dnsAddrs = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        if ($dnsAddrs) {
+            foreach ($d in $dnsAddrs) {
+                if ($d.ServerAddresses) { $dnsList += $d.ServerAddresses }
+            }
+        }
+
+        if ($dnsList.Count -eq 0) {
+            $ipLines = ipconfig /all 2>$null
+            foreach ($l in $ipLines) {
+                if ($l -match 'DNS Servers[ .:]+:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})') {
+                    $dnsList += $Matches[1]
+                }
+            }
+        }
+
+        foreach ($dns in $dnsList) {
+            if ($dns -match "^192\.168\." -or ($dns -match "^10\." -and $dns -ne "10.64.0.1")) {
+                $alerts += [PSCustomObject]@{
+                    Severity = "HIGH"
+                    Type     = "ROGUE_DNS_RESOLVER"
+                    Target   = $dns
+                    Detail   = "Insecure local resolver ($dns) active. Unencrypted DNS vulnerable to MITM/poisoning."
+                }
+            }
+        }
+    } catch {}
+
+    try {
+        $hostsPath = "$env:windir\System32\drivers\etc\hosts"
+        if (Test-Path $hostsPath) {
+            $hostsLines = Get-Content $hostsPath -ErrorAction SilentlyContinue | Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
+            if ($hostsLines.Count -gt 5) {
+                $alerts += [PSCustomObject]@{
+                    Severity = "HIGH"
+                    Type     = "HOSTS_FILE_TAMPERED"
+                    Target   = $hostsPath
+                    Detail   = "Unusual number of active overrides found in hosts file ($($hostsLines.Count) entries)."
+                }
+            }
+        }
+    } catch {}
+
+    return $alerts
+}
+
+function Test-WifiPerimeter {
+    param([ref]$CurrentBssidRef)
+
+    $alerts = @()
+    if (-not (Test-IsWindowsOS)) { return $alerts }
+
+    try {
+        $wlan = netsh wlan show interfaces 2>$null
+        $ssid  = $null
+        $bssid = $null
+        $auth  = $null
+
+        foreach ($line in $wlan) {
+            if ($line -match '^\s*SSID\s*:\s*(.+)$')  { $ssid = $Matches[1].Trim() }
+            if ($line -match '^\s*BSSID\s*:\s*(.+)$') { $bssid = $Matches[1].Trim().ToUpper() }
+            if ($line -match '^\s*Authentication\s*:\s*(.+)$') { $auth = $Matches[1].Trim() }
+        }
+
+        if ($bssid) {
+            if ($CurrentBssidRef.Value -ne $null -and $CurrentBssidRef.Value -ne $bssid) {
+                $alerts += [PSCustomObject]@{
+                    Severity = "HIGH"
+                    Type     = "WIFI_BSSID_MUTATION"
+                    Target   = "$ssid ($bssid)"
+                    Detail   = "Access Point BSSID changed from $($CurrentBssidRef.Value) to $bssid! Potential Evil Twin rogue AP handover."
+                }
+            }
+            $CurrentBssidRef.Value = $bssid
+
+            if ($auth -match "Open" -or $auth -match "None") {
+                $alerts += [PSCustomObject]@{
+                    Severity = "HIGH"
+                    Type     = "WIFI_UNENCRYPTED_OPEN"
+                    Target   = "$ssid"
+                    Detail   = "Connected to completely unencrypted open Wi-Fi network. Public eavesdropping guaranteed."
+                }
+            }
+        }
+    } catch {}
+
+    return $alerts
+}
+
+Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot, Test-DnsHijack, Test-WifiPerimeter
