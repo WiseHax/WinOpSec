@@ -125,49 +125,49 @@ function Invoke-CyberIntro {
 
     # 1. Host Hardening
     Write-Host "`n  [1] host hardening" -ForegroundColor White
-    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Pinapatay ang Windows tracking at nila-lock ang memory." -ForegroundColor Gray
-    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Para hindi ma-dump ang passwords mo sa LSASS gamit ang Mimikatz." -ForegroundColor DarkGray
-    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Kills background tracking and locks kernel memory." -ForegroundColor Gray
+    Write-Host "      why you care: " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Stops Mimikatz from dumping credentials out of LSASS memory." -ForegroundColor DarkGray
+    Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
     Write-Host "2" -ForegroundColor Green
     Start-Sleep -Milliseconds 250
 
     # 2. VPN & Browser
     Write-Host "`n  [2] vpn & browser shield" -ForegroundColor White
-    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Mullvad tunnel lock + anti-WebRTC leak sa browser." -ForegroundColor Gray
-    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Para hindi sumingaw ang totoong IP mo at immune sa stealer malware." -ForegroundColor DarkGray
-    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Mullvad tunnel lock and browser WebRTC leak kill." -ForegroundColor Gray
+    Write-Host "      why you care: " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Keeps your real IP hidden and locks vaults against stealers." -ForegroundColor DarkGray
+    Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
     Write-Host "mullvad harden" -ForegroundColor Green
     Start-Sleep -Milliseconds 250
 
     # 3. Public Sentry
-    Write-Host "`n  [3] public sentry (pang-cafe o airport)" -ForegroundColor White
-    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Tripwire kapag nakakabit sa pampublikong Wi-Fi." -ForegroundColor Gray
-    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Kapag may nag-scan sa'yo o nag-plug ng BadUSB, auto-cut agad ang net at lock ang PC." -ForegroundColor DarkGray
-    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "`n  [3] public sentry (cafes & public wi-fi)" -ForegroundColor White
+    Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Real-time tripwire for hostile local networks." -ForegroundColor Gray
+    Write-Host "      why you care: " -ForegroundColor DarkGray -NoNewline
+    Write-Host "If someone arpspoofs you or plugs in a BadUSB, it drops the net and locks the screen." -ForegroundColor DarkGray
+    Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
     Write-Host "sentry -autopanic" -ForegroundColor Green
     Start-Sleep -Milliseconds 250
 
     # 4. Anti-Forensics & Camouflage
     Write-Host "`n  [4] anti-forensics & camouflage" -ForegroundColor White
-    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Linis ng logs sabay tanim ng normal na civilian files." -ForegroundColor Gray
-    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Delikado ang sobrang linis na laptop sa forensics. Kailangan magmukhang ordinaryong user." -ForegroundColor DarkGray
-    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "      what it is  : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Wipes execution logs and plants civilian decoy files." -ForegroundColor Gray
+    Write-Host "      why you care: " -ForegroundColor DarkGray -NoNewline
+    Write-Host "An empty laptop is suspicious to forensic investigators; blend in instead." -ForegroundColor DarkGray
+    Write-Host "      command     : " -ForegroundColor DarkGray -NoNewline
     Write-Host "chameleon" -ForegroundColor Green
     Start-Sleep -Milliseconds 250
 
-    # 5. Cheat code
-    Write-Host "`n  [5] para sa mga tinatamad o nalilito" -ForegroundColor White
-    Write-Host "      Kung diko magets ang commands, i-type mo lang ito sa prompt:" -ForegroundColor Gray
+    # 5. Quick Menu
+    Write-Host "`n  [5] the quick menu" -ForegroundColor White
+    Write-Host "      If you don't feel like typing commands, just run:" -ForegroundColor Gray
     Write-Host "`n          quick`n" -ForegroundColor Green
-    Write-Host "      1-click menu lang yan para sa Cafe Mode, Lockdown, o Linis." -ForegroundColor DarkGray
+    Write-Host "      1-click profiles for Cafe Mode, Full Lockdown, or Clean." -ForegroundColor DarkGray
 
     Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "  press any key to start... " -ForegroundColor DarkGray -NoNewline
