@@ -400,4 +400,34 @@ function Test-WifiPerimeter {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot, Test-DnsHijack, Test-WifiPerimeter
+function Test-ReverseShellIntegrity {
+    $alerts = @()
+    if (-not (Test-IsWindowsOS)) { return $alerts }
+
+    $suspiciousNames = @("powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "certutil.exe")
+
+    try {
+        $conns = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue
+        if ($conns) {
+            foreach ($c in $conns) {
+                if ($c.OwningProcess) {
+                    $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
+                    if ($proc -and ($proc.ProcessName + ".exe" -in $suspiciousNames)) {
+                        if ($c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1") {
+                            $alerts += [PSCustomObject]@{
+                                Severity = "CRITICAL"
+                                Type     = "REVERSE_SHELL_ACTIVE"
+                                Target   = "$($proc.ProcessName) (PID $($proc.Id))"
+                                Detail   = "Suspicious shell process $($proc.ProcessName) has established outbound socket to $($c.RemoteAddress):$($c.RemotePort)."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    return $alerts
+}
+
+Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Get-UsbHardwareSnapshot, Test-DnsHijack, Test-WifiPerimeter, Test-ReverseShellIntegrity
