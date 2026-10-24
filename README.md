@@ -1,11 +1,11 @@
-# winopsec v3.8
+# winopsec v4.0
 
-Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, kernel memory protection, and state-level anti-forensics utility.
+Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, real-time public sentry & intrusion tripwire, kernel memory protection, and state-level anti-forensics utility.
 
 ## Supported Operating Systems
 
 - **Tier 1 (Flagship / Fully Weaponized):** Windows 10 & Windows 11 (21H2, 22H2, 23H2, 24H2+, Windows Server — all editions, x64 & ARM64)
-  - Full support for deep low-level kernel memory guards, PCA/BAM/SRUM neutralizers, WFP Mullvad killswitch, LSASS RunAsPPL, ShellBags sanitization, and hardware GUID randomization.
+  - Full support for real-time public defensive sentry, deep low-level kernel memory guards, PCA/BAM/SRUM neutralizers, WFP Mullvad killswitch, LSASS RunAsPPL, ShellBags sanitization, and hardware GUID randomization.
 - **Tier 2 (Experimental Stubs / Roadmap):** Linux & macOS
   - Basic cross-platform stubs (shell history shredder, basic network reconnaissance, journal vacuuming). Full feature parity in active development.
 
@@ -29,6 +29,9 @@ Commands inside `opsec>` prompt (accepts number or command name):
 - `7` / `secrets` — scan user directories for private keys, `.env`, `.git-credentials`, `.kube`, and API tokens
 - `8` / `recon` — live VPN tunnel & DNS leak verification, exposed listening ports (`0.0.0.0`/`::`), and active external TCP sockets
 - `9` / `mac` — on-demand hardware MAC address spoofer for active physical network interfaces (`mac reset` to restore factory MAC)
+- `sentry` — real-time public sentry & intrusion tripwire: continuous perimeter monitoring against ARP poisoning/MITM, SYN port scans, rogue DNS injection, microphone/webcam surveillance, and unauthorized USB/BadUSB insertions
+  - `sentry -autopanic` — arm sentry with automated countermeasure: automatically severs all network adapters and locks workstation upon detecting critical intrusion or physical USB tampering
+  - `sentry status` — query instantaneous perimeter posture and baseline integrity
 - `hwid` — inspect persistent cryptographic machine identifiers (`MachineGuid`, SQM `MachineId`, `BuildGUID`, `ProductId`)
   - `hwid randomize` — generate cryptographically random hardware GUIDs to defeat cross-session device attribution
 - `mullvad` — query Mullvad CLI state & cryptographic exit API (`am.i.mullvad.net/json`)
@@ -60,6 +63,8 @@ Commands inside `opsec>` prompt (accepts number or command name):
 ### Direct CLI Flags
 ```sh
 powershell ./WinOpSec.ps1 -Audit
+powershell ./WinOpSec.ps1 -Sentry
+powershell ./WinOpSec.ps1 -Sentry -AutoPanic
 powershell ./WinOpSec.ps1 -Recon
 powershell ./WinOpSec.ps1 -Mullvad
 powershell ./WinOpSec.ps1 -Browser
