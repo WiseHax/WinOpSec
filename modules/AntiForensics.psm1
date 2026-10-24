@@ -124,6 +124,19 @@ function Audit-Traces {
             Count    = "$sbCount records"
             Status   = if ($sbCount -eq 0) { "CLEAN" } else { "EXPOSED" }
         }
+
+        # Event ID 1102 Anti-Forensics Audit (Log Clearing Proof)
+        $clearedProofCount = 0
+        try {
+            $ev1102 = Get-WinEvent -FilterHashtable @{LogName='Security'; Id=1102} -MaxEvents 5 -ErrorAction SilentlyContinue
+            if ($ev1102) { $clearedProofCount = @($ev1102).Count }
+        } catch {}
+        $results += [PSCustomObject]@{
+            Artifact = "EventLog Tamper Proof (1102)"
+            Location = "Security Log (Event 1102)"
+            Count    = if ($clearedProofCount -gt 0) { "$clearedProofCount log-wipe events" } else { "0 events (clean)" }
+            Status   = if ($clearedProofCount -eq 0) { "CLEAN" } else { "EXPOSED" }
+        }
     } else {
         $uHome = Get-UserHome
         foreach ($shFile in @(".bash_history", ".zsh_history", ".python_history", ".lesshst")) {
@@ -541,6 +554,25 @@ function Clear-WindowsEventLogs {
     } catch {}
 }
 
+function Invoke-StealthEventLogBlind {
+    if (-not (Test-AdminPrivilege)) {
+        Write-Host "  [!] Stealth event log blinding requires administrator privileges." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  -- configuring stealth circular log aging (defeats Event ID 1102 smoking gun)..." -ForegroundColor Cyan
+    try {
+        $channels = @("Security", "System", "Application", "Microsoft-Windows-PowerShell/Operational", "Microsoft-Windows-WLAN-AutoConfig/Operational")
+        $configured = 0
+        foreach ($ch in $channels) {
+            wevtutil sl "$ch" /ms:1048576 /rt:false /ab:true 2>$null | Out-Null
+            $configured++
+        }
+        Write-Host "  ok  locked $configured core event log buffers to 1MB circular aging (traces overwrite without generating 1102)" -ForegroundColor Green
+    } catch {
+        Write-Host "  !!  log blinding failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 function Invoke-PanicProtocol {
     param([switch]$PowerOff)
     Write-Host "`n  ================================================================" -ForegroundColor Red
@@ -754,5 +786,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind
 
