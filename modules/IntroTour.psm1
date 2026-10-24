@@ -243,14 +243,14 @@ function Invoke-CyberIntro {
     Play-SubtleTone -Freq 1100 -DurationMs 75
 
     if (-not $VoiceMute) {
-        Speak-Narration -Text "Welcome to WinOpSec. Before you begin, here is what you need to know so you do not compromise your own security."
+        Speak-Narration -Text "Listen up. Don't act like a clueless script kiddie running tools without understanding basic operational security. Pay attention to these rules so you don't get compromised."
     }
 
     Write-AnimatedLine -Text "  > hello." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
     Write-AnimatedLine -Text "  > welcome to winopsec." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
-    Write-AnimatedLine -Text "  > operator defensive briefing online." -CharDelayMs $delay -Color Green
+    Write-AnimatedLine -Text "  > don't be a script kiddie. opsec rules online." -CharDelayMs $delay -Color Green
 
     $null = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
 
@@ -262,56 +262,56 @@ function Invoke-CyberIntro {
     $rules = @(
         @{
             Number  = "1"
-            Title   = "PUBLIC WI-FI: Never surf on open networks with raw interfaces"
-            Voice   = "Rule number one: Never use public Wi-Fi without locking your VPN and MAC address first. In a cafe or airport, anyone with an ARP-poisoning tool can intercept your session tokens. Always run Cafe Mode before you open a browser."
-            Mistake = "Connecting unprotected to cafe, airport, or hotel Wi-Fi."
-            Threat  = "Anyone on the LAN can run ARP poisoning, hijack DNS, or sniff session tokens."
-            Fix     = "Run Cafe Mode to spoof your MAC, lock Mullvad killswitch, and arm Sentry."
+            Title   = "PUBLIC WI-FI: Stop acting like open networks are safe"
+            Voice   = "Rule number one: Stop acting like public Wi-Fi is harmless. Connecting to coffee shop or airport Wi-Fi with a raw MAC address and no VPN is pure amateur hour. Any script kiddie with Bettercap can hijack your session cookies in three seconds. Spoof your MAC and lock your tunnel with Cafe Mode before you touch a browser."
+            Mistake = "Connecting raw to cafe or airport Wi-Fi without VPN and spoofed MAC."
+            Threat  = "Any skid with an ARP-poisoning tool can hijack your sessions in seconds."
+            Fix     = "Run Cafe Mode to lock Mullvad killswitch, spoof MAC, and arm Sentry."
             Command = "quick -> 1  or  sentry -autopanic"
         },
         @{
             Number  = "2"
-            Title   = "CREDENTIALS & MEMORY: Never leave plaintext secrets on disk"
-            Voice   = "Rule number two: Never leave plaintext credentials on your machine, and never leave LSASS memory unprotected. Basic infostealers dump LSASS memory in seconds. Host lockdown isolates LSASS in kernel memory so credentials cannot be dumped."
-            Mistake = "Leaving .env files, private keys, or API tokens exposed on disk."
-            Threat  = "Malware and infostealers harvest tokens and dump plaintext passwords from LSASS."
-            Fix     = "Apply Host Lockdown to lock LSASS into kernel PPL and scan for exposed secrets."
+            Title   = "CREDENTIALS & MEMORY: Storing plaintext secrets on disk is idiotic"
+            Voice   = "Rule number two: Storing plaintext passwords, API tokens, or private keys on your desktop is idiotic. Leaving LSASS memory unprotected lets even the most basic infostealer dump your credentials in half a second. Apply host lockdown to isolate LSASS in kernel memory so malware gets zero passwords."
+            Mistake = "Leaving .env files, private keys, or API tokens on your desktop."
+            Threat  = "Infostealers dump LSASS memory and scrape plaintext keys in under 2 seconds."
+            Fix     = "Lock LSASS into kernel PPL memory and scan disk for exposed secrets."
             Command = "2  or  harden-all"
         },
         @{
             Number  = "3"
-            Title   = "HARDWARE ATTACKS: Never plug in unknown flash drives"
-            Voice   = "Rule number three: Never plug in untrusted USB drives or leave your ports unattended. BadUSB devices inject thousands of keystrokes the instant they connect. Keep Sentry active to alert on rogue USB devices, or arm DeadMan to panic if physical custody is lost."
-            Mistake = "Plugging in a random flash drive or leaving laptop ports unguarded."
-            Threat  = "BadUSB hardware registers as a keyboard and injects reverse shells in half a second."
+            Title   = "HARDWARE ATTACKS: Never plug in unknown flash drives like a rookie"
+            Voice   = "Rule number three: Don't be that clown who plugs in random USB drives found on the street or lets strangers touch your ports. BadUSB devices act like a keyboard on steroids, typing reverse shells before you can even blink. Keep Sentry active, or arm DeadMan if you are in hostile physical territory."
+            Mistake = "Plugging in random USB sticks or leaving laptop ports unguarded."
+            Threat  = "BadUSB hardware injects 500 keystrokes per second to spawn instant reverse shells."
             Fix     = "Arm Sentry to detect rogue USB devices, or use BusKill lanyard (DeadMan)."
             Command = "sentry  or  deadman"
         },
         @{
             Number  = "4"
-            Title   = "FORENSIC ARTIFACTS: Never trust browser incognito mode alone"
-            Voice   = "Rule number four: Never assume closing your browser makes you private. Incognito mode only clears temporary cookies. Windows secretly logs every application in PCA dictionaries and every folder in ShellBags. Always run wipe-pca and wipe-shellbags."
-            Mistake = "Assuming private browsing leaves no traces on the computer."
-            Threat  = "Windows 11 logs every executable run in PCA files and every folder browsed in ShellBags."
-            Fix     = "Shred execution dictionaries and Explorer folder histories after your session."
+            Title   = "FORENSIC ARTIFACTS: Incognito mode will not save you, amateur"
+            Voice   = "Rule number four: Incognito mode will not save you, amateur. Closing your browser only clears cookies; Windows secretly logs every single program you launch in PCA files and records every folder you browse in ShellBags. Always wipe PCA and ShellBags when your session is done."
+            Mistake = "Assuming private browsing leaves zero footprints on your system."
+            Threat  = "Windows 11 secretly logs every .exe in PCA files and folders in ShellBags."
+            Fix     = "Shred PCA dictionaries, Explorer ShellBags, and registry transaction logs."
             Command = "wipe-pca  and  wipe-shellbags  (or 6 / wipe)"
         },
         @{
             Number  = "5"
-            Title   = "FORENSIC DECEPTION: Never leave a suspiciously empty machine"
-            Voice   = "Rule number five: Don't make your computer look like a spy laptop. A completely wiped machine with zero recent files is a red flag to forensic investigators. Deploy civilian camouflage with Chameleon to blend into normal civilian noise."
-            Mistake = "Zeroing every log and file, creating a totally blank machine."
-            Threat  = "Forensics experts look for Evidence of Absence. A clean laptop screams you had something to hide."
-            Fix     = "Deploy realistic civilian noise (recipes, notes, recent links) using Chameleon."
+            Title   = "FORENSIC DECEPTION: A totally clean machine is an amateur dead giveaway"
+            Voice   = "Rule number five: Don't be an idiot and wipe your machine completely clean. Digital forensics experts immediately flag a totally empty laptop as Evidence of Absence. A clean drive screams that you have something to hide. Deploy Chameleon to blend in with normal civilian activity."
+            Mistake = "Zeroing every file and log, leaving a suspicious blank slate."
+            Threat  = "Forensics examiners flag an empty laptop immediately as Evidence of Absence."
+            Fix     = "Deploy realistic civilian camouflage (student essays, recipes) with Chameleon."
             Command = "chameleon"
         },
         @{
             Number  = "6"
-            Title   = "AUTOMATION: Never guess commands when you are unsure"
-            Voice   = "Rule number six: Don't guess commands under pressure. If you are ever unsure what to type, simply run quick. One click applies all the defensive measures for your current situation."
-            Mistake = "Trying to remember dozens of complex terminal flags under stress."
-            Threat  = "Configuration mistakes or forgotten flags that leave defensive gaps open."
-            Fix     = "Use the 1-click Guided Scenario Wizard for instant, error-free defense profiles."
+            Title   = "AUTOMATION: Don't guess commands like a clueless script kiddie"
+            Voice   = "Rule number six: Don't guess commands like a clueless script kiddie when adrenaline is pumping. Just type quick. One click handles the defense automatically so you don't screw it up."
+            Mistake = "Trying to memorize dozens of flags and botching the syntax under stress."
+            Threat  = "One typo or missing killswitch flag leaves your real identity exposed."
+            Fix     = "Type 'quick' for 1-click execution of automated defensive profiles."
             Command = "quick"
         }
     )
@@ -321,13 +321,13 @@ function Invoke-CyberIntro {
     foreach ($r in $rules) {
         if ($interruptedAll) {
             Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
-            Write-Host "      blunder : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "      skid mistake : " -ForegroundColor DarkGray -NoNewline
             Write-Host "$($r.Mistake)" -ForegroundColor Gray
-            Write-Host "      threat  : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "      reality check: " -ForegroundColor DarkGray -NoNewline
             Write-Host "$($r.Threat)" -ForegroundColor DarkGray
-            Write-Host "      defense : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "      opsec fix    : " -ForegroundColor DarkGray -NoNewline
             Write-Host "$($r.Fix)" -ForegroundColor Gray
-            Write-Host "      command : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "      command      : " -ForegroundColor DarkGray -NoNewline
             Write-Host "$($r.Command)" -ForegroundColor Green
             continue
         }
@@ -337,13 +337,13 @@ function Invoke-CyberIntro {
         }
 
         Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
-        Write-Host "      blunder : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "      skid mistake : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$($r.Mistake)" -ForegroundColor Gray
-        Write-Host "      threat  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "      reality check: " -ForegroundColor DarkGray -NoNewline
         Write-Host "$($r.Threat)" -ForegroundColor DarkGray
-        Write-Host "      defense : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "      opsec fix    : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$($r.Fix)" -ForegroundColor Gray
-        Write-Host "      command : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "      command      : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$($r.Command)" -ForegroundColor Green
 
         $skipState = Wait-NarrationFinish -MaxMs 30000 -AllowSkip
@@ -354,11 +354,11 @@ function Invoke-CyberIntro {
     }
 
     if (-not $VoiceMute -and -not $interruptedAll) {
-        Speak-Narration -Text "You are ready. Type quick to begin, or press enter to access the console."
+        Speak-Narration -Text "Briefing finished. Stop doing stupid shit on the net. Type quick to begin, or press enter for the main console."
     }
 
     Write-Host "`n  ------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  press any key to enter console... " -ForegroundColor DarkGray -NoNewline
+    Write-Host "  stop doing stupid shit. type 'quick' or press enter for console... " -ForegroundColor DarkGray -NoNewline
     
     try {
         if (-not [System.Console]::IsInputRedirected) {
