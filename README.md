@@ -4,11 +4,10 @@ Cross-platform operations security, Mullvad VPN partner integration, browser ant
 
 ## Supported Operating Systems
 
-Runs on **any OS** with PowerShell (`pwsh` 7+ or Windows PowerShell 5.1+):
-- **Windows** (Windows 7, 8, 10, 11 24H2+, Windows Server — all editions & architectures)
-- **Linux** (Debian, Ubuntu, Arch, Fedora, RHEL, Kali, Alpine, etc.)
-- **macOS** (Intel & Apple Silicon)
-- **BSD / Unix** (FreeBSD, OpenBSD, NetBSD)
+- **Tier 1 (Flagship / Fully Weaponized):** Windows 10 & Windows 11 (21H2, 22H2, 23H2, 24H2+, Windows Server — all editions, x64 & ARM64)
+  - Full support for deep low-level kernel memory guards, PCA/BAM/SRUM neutralizers, WFP Mullvad killswitch, LSASS RunAsPPL, ShellBags sanitization, and hardware GUID randomization.
+- **Tier 2 (Experimental Stubs / Roadmap):** Linux & macOS
+  - Basic cross-platform stubs (shell history shredder, basic network reconnaissance, journal vacuuming). Full feature parity in active development.
 
 ## Usage
 
