@@ -30,6 +30,8 @@ Commands inside `opsec>` prompt (accepts number or command name):
 - `7` / `secrets` — scan user directories for private keys, `.env`, `.git-credentials`, `.kube`, and API tokens
 - `8` / `recon` — live VPN tunnel & DNS leak verification, exposed listening ports (`0.0.0.0`/`::`), and active external TCP sockets
 - `9` / `mac` — on-demand hardware MAC address spoofer for active physical network interfaces (`mac reset` to restore factory MAC)
+- `hwid` — inspect persistent cryptographic machine identifiers (`MachineGuid`, SQM `MachineId`, `BuildGUID`, `ProductId`)
+  - `hwid randomize` — generate cryptographically random hardware GUIDs to defeat cross-session device attribution
 - `mullvad` — query Mullvad CLI state & cryptographic exit API (`am.i.mullvad.net/json`)
   - `mullvad harden` — state-level lockdown: enforce WFP killswitch (`lockdown-mode on`), Kyber-1024 Quantum-Resistant tunnel, Maybenot DAITA (Anti-AI traffic shaping), WireGuard multihop (dual-country bounce), LAN isolation & IPv6 leak lock
   - `mullvad rotate` — instantly generate & rotate WireGuard public/private keys

@@ -12,6 +12,7 @@ param (
     [switch]$ShellBags,
     [switch]$Srum,
     [switch]$ScrubWifi,
+    [switch]$RandomizeHwId,
     [string]$Scrub,
     [switch]$SpoofMac,
     [switch]$ScanSecrets,
@@ -23,7 +24,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -118,6 +119,12 @@ function Invoke-Audit {
         Write-StatusRow -State $r.Status -Label $r.Artifact -Detail $r.Count
     }
 
+    Write-Host "`n  -- hardware identity & cryptographic anchors" -ForegroundColor Cyan
+    $hwResults = Audit-HardwareIdentity
+    foreach ($r in $hwResults) {
+        Write-StatusRow -State $(if ($r.Status -eq "CLEAN") { "CLEAN" } else { "CONFIGURABLE" }) -Label $r.Artifact -Detail "$($r.Value) [risk:$($r.Risk)]"
+    }
+
     Write-Host "`n  -- disk encryption" -ForegroundColor Cyan
     $diskResult = Audit-DiskEncryption
     Write-StatusRow -State $diskResult.Status -Label $diskResult.Target -Detail $diskResult.Details
@@ -200,6 +207,8 @@ function Show-Menu {
     Write-Host "    7  secrets        scan user paths for keys, .env & infostealer token targets"
     Write-Host "    8  recon          live VPN tunnel check, exposed listening ports & active sockets"
     Write-Host "    9  mac            spoof physical network adapter hardware MAC ('mac reset' to restore)"
+    Write-Host "    hwid              inspect cryptographic machine anchors (MachineGuid, SQM)"
+    Write-Host "    hwid randomize    generate fresh cryptographically random hardware GUIDs"
     Write-Host "    mullvad           status & exit (or 'mullvad harden' | 'rotate' | 'daita on' | 'multihop on')"
     Write-Host "    browser           harden browsers | 'browser list' | 'browser clean' | 'browser autofill' | 'browser remove <acct>'"
     Write-Host "    browser launch    launch preferred browser (Mullvad Browser / hardened ephemeral mode)"
@@ -230,6 +239,7 @@ if ($PcaWipe)       { Write-Header; Invoke-PcaWipe; exit }
 if ($ShellBags)     { Write-Header; Invoke-ShellBagsSanitize; exit }
 if ($Srum)          { Write-Header; Invoke-SrumNeutralize; exit }
 if ($ScrubWifi)     { Write-Header; Invoke-NetworkListScrub; exit }
+if ($RandomizeHwId) { Write-Header; Invoke-HwIdRandomize; exit }
 if ($Scrub)         { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; exit }
 if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
@@ -304,6 +314,16 @@ while ($true) {
         "^(9|mac|spoof)\s+reset$" {
             Write-Host ""
             Invoke-MacSpoof -Reset
+            Write-Host ""
+        }
+        "^hwid(\s+(status|audit|check))?$" {
+            Write-Host ""
+            Audit-HardwareIdentity | Format-Table -AutoSize
+            Write-Host ""
+        }
+        "^hwid\s+(randomize|spoof|new)$" {
+            Write-Host ""
+            Invoke-HwIdRandomize
             Write-Host ""
         }
         "^mullvad(\s+status)?$" {
