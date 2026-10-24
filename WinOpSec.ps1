@@ -8,6 +8,10 @@ param (
     [switch]$LaunchBrowser,
     [switch]$HardenAll,
     [switch]$WipeTraces,
+    [switch]$PcaWipe,
+    [switch]$ShellBags,
+    [switch]$Srum,
+    [switch]$ScrubWifi,
     [string]$Scrub,
     [switch]$SpoofMac,
     [switch]$ScanSecrets,
@@ -200,10 +204,15 @@ function Show-Menu {
     Write-Host "    browser           harden browsers | 'browser list' | 'browser clean' | 'browser autofill' | 'browser remove <acct>'"
     Write-Host "    browser launch    launch preferred browser (Mullvad Browser / hardened ephemeral mode)"
     Write-Host "    forensic-check    inspect VSS snapshots, USN deletion journal, timeline & slack space"
+    Write-Host "    wipe-pca          purge Windows 11 PCA launch dictionaries (PcaAppLaunchDic.txt)"
+    Write-Host "    wipe-shellbags    purge Explorer ShellBags (BagMRU & Bags folder navigation histories)"
+    Write-Host "    wipe-srum         purge SRUM ESE database (SRUDB.dat) & lock DPS telemetry service"
+    Write-Host "    scrub-wifi        purge NetworkList Wi-Fi profiles & BSSIDs (anti-WiGLE triangulation)"
     Write-Host "    wipe-deleted      purge VSS shadows, reset USN deletion logs & re-trim SSD ('wipe-deleted -cipher')"
     Write-Host "    wipe-logs         purge all 400+ Windows event logs (Security, System, PowerShell, WLAN)"
     Write-Host "    scrub <path>      strip EXIF/NTFS Zone.Identifier & normalize file timestamps"
-    Write-Host "    panic             instant trace shred + ARP/DNS flush + screen lock"
+    Write-Host "    panic             apex duress protocol: terminate apps, sever routes, wipe traces & lock"
+    Write-Host "    panic -poweroff   emergency hard shutdown with zero-trace power severance"
     Write-Host "    restore           rollback system config from latest snapshot"
     Write-Host "    q  quit"
     Write-Host ""
@@ -217,6 +226,10 @@ if ($Browser)       { Write-Header; Harden-Browsers; exit }
 if ($LaunchBrowser) { Write-Header; Start-HardenedBrowser; exit }
 if ($HardenAll)     { Write-Header; Invoke-HardenAll; exit }
 if ($WipeTraces)    { Write-Header; Invoke-TraceWipe; exit }
+if ($PcaWipe)       { Write-Header; Invoke-PcaWipe; exit }
+if ($ShellBags)     { Write-Header; Invoke-ShellBagsSanitize; exit }
+if ($Srum)          { Write-Header; Invoke-SrumNeutralize; exit }
+if ($ScrubWifi)     { Write-Header; Invoke-NetworkListScrub; exit }
 if ($Scrub)         { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; exit }
 if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
@@ -363,6 +376,26 @@ while ($true) {
             Audit-DeletedFootprint
             Write-Host ""
         }
+        "^(wipe-pca|pca)$" {
+            Write-Host ""
+            Invoke-PcaWipe
+            Write-Host ""
+        }
+        "^(wipe-shellbags|shellbags)$" {
+            Write-Host ""
+            Invoke-ShellBagsSanitize
+            Write-Host ""
+        }
+        "^(wipe-srum|srum)$" {
+            Write-Host ""
+            Invoke-SrumNeutralize
+            Write-Host ""
+        }
+        "^(scrub-wifi|wifi-scrub|wipe-wifi)$" {
+            Write-Host ""
+            Invoke-NetworkListScrub
+            Write-Host ""
+        }
         "^wipe-deleted(\s+(-cipher|cipher))?$" {
             Write-Host ""
             Invoke-DeepSanitize -FullCipher:($Matches[1] -ne $null)
@@ -373,9 +406,9 @@ while ($true) {
             Clear-WindowsEventLogs
             Write-Host ""
         }
-        "^panic$" {
+        "^panic(\s+(-poweroff|poweroff|shutdown))?$" {
             Write-Host ""
-            Invoke-PanicProtocol
+            Invoke-PanicProtocol -PowerOff:($Matches[1] -ne $null)
             Write-Host ""
         }
         "^(10|restore|rollback)$" {
