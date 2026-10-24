@@ -330,6 +330,9 @@ function Clear-ExplorerTraces {
         }
         Write-Host "  ok  shredded WER reports & user crash dumps" -ForegroundColor Green
 
+        # Purge Windows Snipping Tool & ScreenSketch image caches
+        Invoke-ScreenshotCacheWipe
+
         # Strip NTFS Zone.Identifier ADS (download origin URLs) from Downloads & Desktop
         $uHome = Get-UserHome
         $adsCount = 0
@@ -573,6 +576,71 @@ function Invoke-StealthEventLogBlind {
     }
 }
 
+function Invoke-TokenSanitize {
+    param([switch]$Total)
+    Write-Host "  -- neutralizing desktop messenger & communication auth sessions..." -ForegroundColor Cyan
+
+    $targets = @(
+        @{ Name = "Telegram Desktop (tdata)"; Path = "$env:APPDATA\Telegram Desktop\tdata" },
+        @{ Name = "Discord Session Storage"; Path = "$env:APPDATA\discord\Session Storage" },
+        @{ Name = "Discord Local Storage"; Path = "$env:APPDATA\discord\Local Storage\leveldb" },
+        @{ Name = "Signal Auth Storage"; Path = "$env:APPDATA\Signal\sql" },
+        @{ Name = "Slack Session Storage"; Path = "$env:APPDATA\Slack\Local Storage" }
+    )
+
+    $purged = 0
+    foreach ($t in $targets) {
+        if (Test-Path $t.Path) {
+            try {
+                if ($t.Name -match "Telegram") {
+                    # Shred Telegram auth session files (D877F783D5D3EF8C*, user_data*, key_datas*)
+                    Get-ChildItem -Path $t.Path -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^(D877|user_data|key_datas)" } | ForEach-Object {
+                        [System.IO.File]::WriteAllBytes($_.FullName, [byte[]]@())
+                        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                } else {
+                    Get-ChildItem -Path $t.Path -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        [System.IO.File]::WriteAllBytes($_.FullName, [byte[]]@())
+                        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                Write-Host "  ok  purged $($t.Name)" -ForegroundColor Green
+                $purged++
+            } catch {}
+        }
+    }
+
+    if ($purged -eq 0) {
+        Write-Host "  ok  no active messenger auth sessions detected on host" -ForegroundColor Green
+    } else {
+        Write-Host "  ok  neutralized $purged communication session stores (defeats post-seizure chat hijack)" -ForegroundColor Green
+    }
+}
+
+function Invoke-ScreenshotCacheWipe {
+    Write-Host "  -- scrubbing Windows Snipping Tool & ScreenSketch temporary buffers..." -ForegroundColor Cyan
+
+    $scrPaths = @(
+        "$env:LOCALAPPDATA\Packages\Microsoft.ScreenSketch_8wekyb3d8bbwe\TempState",
+        "$env:LOCALAPPDATA\Packages\Microsoft.Windows.SnippingTool_8wekyb3d8bbwe\TempState"
+    )
+
+    $scrubbed = 0
+    foreach ($sp in $scrPaths) {
+        if (Test-Path $sp -ErrorAction SilentlyContinue) {
+            Get-ChildItem -Path $sp -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    [System.IO.File]::WriteAllBytes($_.FullName, [byte[]]@())
+                    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+                    $scrubbed++
+                } catch {}
+            }
+        }
+    }
+
+    Write-Host "  ok  shredded $scrubbed cached screenshot buffers (defeats Acropalypse image carving)" -ForegroundColor Green
+}
+
 function Invoke-PanicProtocol {
     param([switch]$PowerOff)
     Write-Host "`n  ================================================================" -ForegroundColor Red
@@ -786,5 +854,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe
 
