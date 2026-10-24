@@ -136,6 +136,34 @@ function Audit-Telemetry {
             Status   = if ($lmLevel -ge 5 -and $anonSam -eq 1) { "HARDENED" } else { "EXPOSED" }
             Details  = if ($lmLevel -ge 5 -and $anonSam -eq 1) { "LM/NTLMv1 refused, SAM restricted" } else { "legacy NTLM or SAM allowed" }
         }
+
+        # Kernel Memory Paging Guard (DisablePagingExecutive)
+        $pExec = $null
+        if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management") {
+            $mProps = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "DisablePagingExecutive" -ErrorAction SilentlyContinue
+            if ($mProps) { $pExec = $mProps.DisablePagingExecutive }
+        }
+        $results += [PSCustomObject]@{
+            Category = "HostOpSec"
+            Check    = "Kernel Memory Paging Guard"
+            Status   = if ($pExec -eq 1) { "HARDENED" } else { "EXPOSED" }
+            Details  = if ($pExec -eq 1) { "DisablePagingExecutive enforced (RAM-locked)" } else { "unprotected (kernel code paged to disk)" }
+        }
+
+        # Fast Startup & Hibernation Memory Bleed
+        $hiberBoot = $null
+        if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power") {
+            $pwrProps = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -ErrorAction SilentlyContinue
+            if ($pwrProps) { $hiberBoot = $pwrProps.HiberbootEnabled }
+        }
+        $hiberFileExists = Test-Path "C:\hiberfil.sys" -ErrorAction SilentlyContinue
+        $hiberClean = ($hiberBoot -eq 0 -or $null -eq $hiberBoot) -and (-not $hiberFileExists)
+        $results += [PSCustomObject]@{
+            Category = "HostOpSec"
+            Check    = "Fast Startup & Hibernation Dump"
+            Status   = if ($hiberClean) { "HARDENED" } else { "EXPOSED" }
+            Details  = if ($hiberClean) { "disabled (zero RAM dump on shutdown)" } else { "active (hiberfil.sys memory bleed risk)" }
+        }
     } elseif ($IsMacOS) {
         $diagAuto = (defaults read "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist" AutoSubmit 2>$null)
         $results += [PSCustomObject]@{
@@ -274,6 +302,11 @@ function Harden-Telemetry {
             $memMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
             if (Test-Path $memMgmt) {
                 Set-ItemProperty -Path $memMgmt -Name "ClearPageFileAtShutdown" -Type DWord -Value 1 -Force
+                Set-ItemProperty -Path $memMgmt -Name "DisablePagingExecutive" -Type DWord -Value 1 -Force
+            }
+            $pwrMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
+            if (Test-Path $pwrMgmt) {
+                Set-ItemProperty -Path $pwrMgmt -Name "HiberbootEnabled" -Type DWord -Value 0 -Force
             }
             $pfParams = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
             if (-not (Test-Path $pfParams)) { New-Item -Path $pfParams -Force | Out-Null }
