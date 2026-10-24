@@ -5,6 +5,7 @@ param (
     [switch]$Recon,
     [switch]$Sentry,
     [switch]$AutoPanic,
+    [switch]$SinglePass,
     [switch]$Mullvad,
     [switch]$Browser,
     [switch]$LaunchBrowser,
@@ -262,7 +263,7 @@ function Show-Menu {
 if ($Help)          { Show-Usage; exit }
 if ($Audit)         { Write-Header; Invoke-Audit; exit }
 if ($Recon)         { Write-Header; Invoke-NetworkRecon; exit }
-if ($Sentry)        { Write-Header; Invoke-SentryMonitor -AutoPanic:$AutoPanic; exit }
+if ($Sentry)        { Write-Header; Invoke-SentryMonitor -AutoPanic:$AutoPanic -SinglePass:$SinglePass; exit }
 if ($Mullvad)       { Write-Header; Invoke-MullvadPartner -Action "status"; exit }
 if ($Browser)       { Write-Header; Harden-Browsers; exit }
 if ($LaunchBrowser) { Write-Header; Start-HardenedBrowser; exit }
