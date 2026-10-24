@@ -222,41 +222,208 @@ function Show-Usage {
 }
 
 function Show-Menu {
-    Write-Host "  commands:" -ForegroundColor DarkGray
-    Write-Host "    1  audit          posture, memory shield, VPN/Mullvad, browser & trace check"
-    Write-Host "    2  telemetry      disable telemetry, WDigest, SAM enum + enable LSASS PPL & NTLMv2"
-    Write-Host "    3  anon           VPN-safe geolocation kill (no popup), AI/Recall & cam/mic lock"
-    Write-Host "    4  net            block LLMNR, mDNS, NetBIOS, Teredo, WPAD + enforce SMB signing"
-    Write-Host "    5  harden-all     apply all host, network, Mullvad & browser hardening (with snapshot)"
-    Write-Host "    6  wipe           shred histories, UserAssist, ComDlg32, ADS, WER & browser caches"
-    Write-Host "    7  secrets        scan user paths for keys, .env & infostealer token targets"
-    Write-Host "    8  recon          live VPN tunnel check, exposed listening ports & active sockets"
-    Write-Host "    9  mac            spoof physical network adapter hardware MAC ('mac reset' to restore)"
-    Write-Host "    hwid              inspect cryptographic machine anchors (MachineGuid, SQM)"
-    Write-Host "    hwid randomize    generate fresh cryptographically random hardware GUIDs"
-    Write-Host "    mullvad           status & exit (or 'mullvad harden' | 'rotate' | 'daita on' | 'multihop on')"
-    Write-Host "    browser           harden browsers | 'browser list' | 'browser clean' | 'browser autofill' | 'browser remove <acct>'"
-    Write-Host "    browser launch    launch preferred browser (Mullvad Browser / hardened ephemeral mode)"
-    Write-Host "    forensic-check    inspect VSS snapshots, USN deletion journal, timeline & slack space"
-    Write-Host "    wipe-pca          purge Windows 11 PCA launch dictionaries (PcaAppLaunchDic.txt)"
-    Write-Host "    wipe-shellbags    purge Explorer ShellBags (BagMRU & Bags folder navigation histories)"
-    Write-Host "    wipe-srum         purge SRUM ESE database (SRUDB.dat) & lock DPS telemetry service"
-    Write-Host "    scrub-wifi        purge NetworkList Wi-Fi profiles & BSSIDs (anti-WiGLE triangulation)"
-    Write-Host "    wipe-tokens       neutralize Telegram, Discord, Signal & Slack desktop auth sessions"
-    Write-Host "    wipe-screenshots  shred Windows Snipping Tool temp state & Acropalypse image caches"
-    Write-Host "    wipe-reglogs      flush active registry transaction journals (.LOG1, .LOG2) to disk"
-    Write-Host "    sentry            real-time public sentry (ARP poison, port scan, mic/cam tap, BadUSB)"
-    Write-Host "    sentry -autopanic arm sentry with automated Wi-Fi kill & workstation lock on threat"
-    Write-Host "    chameleon         seed synthetic civilian activity (defeats SANS 'Too Clean Machine')"
-    Write-Host "    chameleon -purge  purge synthetic camouflage documents and revert to zero-state"
-    Write-Host "    deadman           arm USB Dead Man's Switch (instant panic on physical USB pull)"
-    Write-Host "    wipe-deleted      purge VSS shadows, reset USN deletion logs & re-trim SSD ('wipe-deleted -cipher')"
-    Write-Host "    wipe-logs         purge all 400+ Windows event logs (Security, System, PowerShell, WLAN)"
-    Write-Host "    scrub <path>      strip EXIF/NTFS Zone.Identifier & normalize file timestamps"
-    Write-Host "    panic             apex duress protocol: terminate apps, sever routes, wipe traces & lock"
-    Write-Host "    panic -poweroff   emergency hard shutdown with zero-trace power severance"
-    Write-Host "    restore           rollback system config from latest snapshot"
-    Write-Host "    q  quit"
+    Write-Host "  ============================== OPERATIONAL PILLARS ==============================" -ForegroundColor DarkCyan
+    Write-Host "  Type a command, category number, or 'quick' for the automated scenario wizard.`n" -ForegroundColor DarkGray
+
+    Write-Host "  [1] AUDIT & RECON" -ForegroundColor Cyan
+    Write-Host "      1 / audit       - Full system posture check & security scoring" -ForegroundColor White
+    Write-Host "      8 / recon       - Inspect listening ports, active sockets & VPN tunnel" -ForegroundColor Gray
+    Write-Host "      7 / secrets     - Scan disk for exposed private keys, .env & API tokens" -ForegroundColor Gray
+    Write-Host "      hwid            - Inspect hardware GUIDs (MachineGuid, SQM ID)" -ForegroundColor Gray
+
+    Write-Host "`n  [2] REAL-TIME DEFENSE (PUBLIC WI-FI & SENTRY)" -ForegroundColor Cyan
+    Write-Host "      sentry          - Real-time perimeter guard (ARP poison, port scans, mic tap)" -ForegroundColor White
+    Write-Host "      sentry -autopanic - Armed sentry: auto-cuts Wi-Fi & locks PC on threat" -ForegroundColor Yellow
+    Write-Host "      deadman         - Arm USB BusKill lanyard trigger (panic on physical pull)" -ForegroundColor Gray
+    Write-Host "      9 / mac         - Spoof active network interface MAC ('mac reset' to restore)" -ForegroundColor Gray
+
+    Write-Host "`n  [3] SYSTEM HARDENING & SHIELDS" -ForegroundColor Cyan
+    Write-Host "      5 / harden-all  - Apply all OS, kernel, network, Mullvad & browser shields" -ForegroundColor White
+    Write-Host "      mullvad harden  - Enforce WFP killswitch, DAITA traffic shaping & post-quantum" -ForegroundColor Gray
+    Write-Host "      browser         - Block WebRTC leaks, lock password vaults & force DoH" -ForegroundColor Gray
+    Write-Host "      browser launch  - Open ephemeral isolated browser session" -ForegroundColor Gray
+
+    Write-Host "`n  [4] ANTI-FORENSICS & EVIDENCE CLEANUP" -ForegroundColor Cyan
+    Write-Host "      6 / wipe        - Shred histories, RunMRU, crash dumps, ADS & browser caches" -ForegroundColor White
+    Write-Host "      wipe-pca        - Neutralize Windows 11 Program Compatibility execution logs" -ForegroundColor Gray
+    Write-Host "      wipe-shellbags  - Purge Explorer folder navigation tracking (ShellBags)" -ForegroundColor Gray
+    Write-Host "      wipe-reglogs    - Flush registry transaction logs (.LOG1/.LOG2) to disk" -ForegroundColor Gray
+    Write-Host "      wipe-deleted    - Purge VSS shadow copies, zero free space & re-trim SSD" -ForegroundColor Gray
+    Write-Host "      scrub <path>    - Strip EXIF/metadata & normalize file timestamps" -ForegroundColor Gray
+
+    Write-Host "`n  [5] FORENSIC CAMOUFLAGE & DECEPTION" -ForegroundColor Cyan
+    Write-Host "      chameleon       - Seed realistic civilian activity (defeats 'Too Clean Machine')" -ForegroundColor White
+    Write-Host "      chameleon -purge - Revert synthetic camouflage files back to zero-state" -ForegroundColor Gray
+
+    Write-Host "`n  [!] DURESS & NAVIGATION" -ForegroundColor Red
+    Write-Host "      quick           - Launch Guided Operational Scenario Wizard (Recommended)" -ForegroundColor Green
+    Write-Host "      guide <cmd>     - Explain what any feature does in simple human terms" -ForegroundColor DarkCyan
+    Write-Host "      panic           - Emergency duress protocol: sever routes, wipe traces & lock" -ForegroundColor Red
+    Write-Host "      panic -poweroff - Emergency hard poweroff with zero disk writes" -ForegroundColor DarkRed
+    Write-Host "      restore         - Rollback system settings from saved backup snapshot" -ForegroundColor Gray
+    Write-Host "      q / quit        - Exit console" -ForegroundColor DarkGray
+    Write-Host "  =================================================================================`n" -ForegroundColor DarkCyan
+}
+
+function Invoke-GuidedWizard {
+    Write-Host "`n  ================= GUIDED OPERATIONAL SCENARIO WIZARD =================" -ForegroundColor Green
+    Write-Host "  Choose your current operational situation for 1-click execution:`n" -ForegroundColor Gray
+
+    Write-Host "  [1] Cafe / Public Wi-Fi Mode" -ForegroundColor Yellow
+    Write-Host "      -> Spoofs MAC address, locks Mullvad VPN, and activates Sentry Monitor with Auto-Panic." -ForegroundColor DarkGray
+
+    Write-Host "  [2] Complete Host Lockdown" -ForegroundColor Cyan
+    Write-Host "      -> Applies kernel LSASS PPL, disables telemetry/WDigest, blocks LLMNR/NetBIOS, and saves backup." -ForegroundColor DarkGray
+
+    Write-Host "  [3] Secure Ephemeral Browsing" -ForegroundColor Magenta
+    Write-Host "      -> Hardens browsers against WebRTC/vault theft and launches private ephemeral browser." -ForegroundColor DarkGray
+
+    Write-Host "  [4] Post-Session Forensics Scrub & Camouflage" -ForegroundColor Green
+    Write-Host "      -> Purges execution traces (PCA, ShellBags, RunMRU) and injects civilian Chameleon noise." -ForegroundColor DarkGray
+
+    Write-Host "  [5] Full Security Posture Audit" -ForegroundColor White
+    Write-Host "      -> Scans all 47 defensive benchmarks and calculates security score." -ForegroundColor DarkGray
+
+    Write-Host "  [0] Cancel / Back to menu" -ForegroundColor DarkGray
+    Write-Host ""
+
+    Write-Host "wizard> Select option [0-5]: " -ForegroundColor Green -NoNewline
+    $sel = (Read-Host).Trim()
+
+    switch ($sel) {
+        "1" {
+            Write-Host "`n  [+] Engaging Cafe / Public Wi-Fi Mode..." -ForegroundColor Yellow
+            Invoke-MacSpoof
+            Invoke-MullvadPartner -Action "harden"
+            Write-Host "  [+] Starting Sentry Tripwire with Auto-Panic active...`n" -ForegroundColor Green
+            Invoke-SentryMonitor -AutoPanic
+        }
+        "2" {
+            Write-Host "`n  [+] Engaging Complete Host Lockdown..." -ForegroundColor Cyan
+            Invoke-HardenAll
+        }
+        "3" {
+            Write-Host "`n  [+] Hardening Browser and launching isolated instance..." -ForegroundColor Magenta
+            Harden-Browsers
+            Start-HardenedBrowser
+        }
+        "4" {
+            Write-Host "`n  [+] Scrubbing Forensics & Deploying Chameleon Camouflage..." -ForegroundColor Green
+            Invoke-TraceWipe
+            Invoke-PcaWipe
+            Invoke-ShellBagsSanitize
+            Invoke-RegistryLogSanitize
+            Invoke-ChameleonNoise
+            Write-Host "  [+] Traces sanitized and civilian noise active." -ForegroundColor Green
+        }
+        "5" {
+            Write-Host ""
+            Invoke-Audit
+        }
+        default {
+            Write-Host "  Cancelled." -ForegroundColor DarkGray
+        }
+    }
+}
+
+function Show-CommandGuide {
+    param([string]$Topic)
+
+    $t = if ($Topic) { $Topic.ToLower().Trim() } else { "" }
+
+    Write-Host ""
+    switch -Regex ($t) {
+        "^(sentry|monitor|tripwire)$" {
+            Write-Host "  === SENTRY & DEFENSIVE TRIPWIRE GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Real-time defense against attackers on the same public Wi-Fi or LAN." -ForegroundColor White
+            Write-Host "  Monitors 7 attack vectors:" -ForegroundColor Gray
+            Write-Host "    - ARP Poisoning / MITM (Bettercap/Ettercap gateway spoofing)" -ForegroundColor DarkGray
+            Write-Host "    - Inbound Port Scans (Nmap SYN half-open probes on ports 445, 135, 3389)" -ForegroundColor DarkGray
+            Write-Host "    - Eavesdropping (Processes actively recording microphone or camera)" -ForegroundColor DarkGray
+            Write-Host "    - Unauthorized USB (BadUSB / Rubber Ducky keystroke injectors)" -ForegroundColor DarkGray
+            Write-Host "    - Rogue DNS (Untrusted local resolvers or hosts tampering)" -ForegroundColor DarkGray
+            Write-Host "    - Evil Twin Wi-Fi (BSSID access point mutation)" -ForegroundColor DarkGray
+            Write-Host "    - Active Reverse Shells (Outbound sockets from cmd/powershell)" -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    sentry            -> Continuous monitoring with audible alerts" -ForegroundColor Yellow
+            Write-Host "    sentry -autopanic -> Auto-disables Wi-Fi and locks PC if attacked" -ForegroundColor Red
+        }
+        "^(chameleon|camouflage|noise)$" {
+            Write-Host "  === FORENSIC CHAMELEON GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Defeats the SANS FOR500 'Evidence of Absence / Too Clean Machine' trap." -ForegroundColor White
+            Write-Host "  Why it matters:" -ForegroundColor Gray
+            Write-Host "    Digital forensics experts look for machines that have 0 logs and 0 recent files." -ForegroundColor DarkGray
+            Write-Host "    A wiped laptop is suspicious. Chameleon injects benign student/civilian" -ForegroundColor DarkGray
+            Write-Host "    documents, recent links, and realistic activity so you blend in." -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    chameleon        -> Deploy civilian noise documents & Recent links" -ForegroundColor Yellow
+            Write-Host "    chameleon -purge -> Clean up all decoy files" -ForegroundColor Gray
+        }
+        "^(deadman|buskill|usb)$" {
+            Write-Host "  === USB DEAD MAN'S SWITCH GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Anti-snatch physical defense (like the Silk Road Glen Park arrest)." -ForegroundColor White
+            Write-Host "  How it works:" -ForegroundColor Gray
+            Write-Host "    Attach a USB flash drive with a wrist lanyard to your laptop." -ForegroundColor DarkGray
+            Write-Host "    If someone snatches your laptop and the USB pulls out, WinOpSec triggers" -ForegroundColor DarkGray
+            Write-Host "    an immediate panic wipe, route kill, and workstation lock or poweroff." -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    deadman          -> Select USB drive and arm monitor (200ms poll)" -ForegroundColor Yellow
+        }
+        "^(pca|wipe-pca)$" {
+            Write-Host "  === PROGRAM COMPATIBILITY ASSISTANT (PCA) GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Neutralizes Windows 11 hidden program execution tracking." -ForegroundColor White
+            Write-Host "  Why it matters:" -ForegroundColor Gray
+            Write-Host "    Windows 11 silently logs every executable you run into PcaAppLaunchDic.txt." -ForegroundColor DarkGray
+            Write-Host "    Even if you delete Prefetch, PCA still has the full history." -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    wipe-pca         -> Purges dictionary and locks file with read-only ACL" -ForegroundColor Yellow
+        }
+        "^(shellbags|wipe-shellbags)$" {
+            Write-Host "  === SHELLBAGS SANITIZER GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Wipes Explorer folder browsing and USB folder access history." -ForegroundColor White
+            Write-Host "  Why it matters:" -ForegroundColor Gray
+            Write-Host "    Windows stores every folder, flash drive, and network share you ever opened" -ForegroundColor DarkGray
+            Write-Host "    in the registry BagMRU keys. This reveals what directories you explored." -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    wipe-shellbags   -> Removes all BagMRU and Bags keys" -ForegroundColor Yellow
+        }
+        "^(mullvad)$" {
+            Write-Host "  === MULLVAD PARTNER LOCKDOWN GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Purpose: Enforces state-level cryptographic VPN protections." -ForegroundColor White
+            Write-Host "  Features:" -ForegroundColor Gray
+            Write-Host "    - WFP strict killswitch (blocks all non-tunnel traffic)" -ForegroundColor DarkGray
+            Write-Host "    - Post-Quantum Kyber-1024 encryption (quantum-resistant)" -ForegroundColor DarkGray
+            Write-Host "    - DAITA (Maybenot AI traffic analysis padding)" -ForegroundColor DarkGray
+            Write-Host "    - Multihop routing (dual-country relay bounce)" -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    mullvad harden   -> Turn on all maximum security protections" -ForegroundColor Yellow
+            Write-Host "    mullvad rotate   -> Generate fresh WireGuard keys" -ForegroundColor Gray
+        }
+        "^(panic)$" {
+            Write-Host "  === EMERGENCY PANIC PROTOCOL GUIDE ===" -ForegroundColor Red
+            Write-Host "  Purpose: Instant duress countermeasure under active raid or compromise." -ForegroundColor White
+            Write-Host "  Actions taken:" -ForegroundColor Gray
+            Write-Host "    - Terminates browsers, messengers, and shell processes" -ForegroundColor DarkGray
+            Write-Host "    - Drops all Wi-Fi / Ethernet adapters and deletes routes" -ForegroundColor DarkGray
+            Write-Host "    - Flushes ARP, DNS, and NetBIOS caches" -ForegroundColor DarkGray
+            Write-Host "    - Shreds recent histories and locks Windows workstation" -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    panic            -> Execute immediate screen lock and network severance" -ForegroundColor Yellow
+            Write-Host "    panic -poweroff  -> Emergency hard shutdown with zero disk traces" -ForegroundColor Red
+        }
+        default {
+            Write-Host "  === WINOPSEC OPERATIONAL GUIDE ===" -ForegroundColor Cyan
+            Write-Host "  Type 'guide <topic>' for in-depth details on any module:`n" -ForegroundColor DarkGray
+            Write-Host "    guide sentry     -> Real-time Public Wi-Fi tripwire & BadUSB monitor" -ForegroundColor White
+            Write-Host "    guide chameleon  -> Synthetic civilian camouflage & SANS anti-absence" -ForegroundColor White
+            Write-Host "    guide deadman    -> USB BusKill lanyard anti-snatch hardware trigger" -ForegroundColor White
+            Write-Host "    guide pca        -> Windows 11 hidden program execution logs" -ForegroundColor White
+            Write-Host "    guide shellbags  -> Explorer folder navigation histories" -ForegroundColor White
+            Write-Host "    guide mullvad    -> Post-quantum, DAITA & WFP killswitch setup" -ForegroundColor White
+            Write-Host "    guide panic      -> Emergency duress protocol" -ForegroundColor White
+            Write-Host "`n  Tip: You can also type 'quick' for the guided 1-click scenario wizard!" -ForegroundColor Green
+        }
+    }
     Write-Host ""
 }
 
@@ -291,7 +458,11 @@ Write-Header
 Show-Menu
 
 while ($true) {
-    Write-Host "opsec> " -ForegroundColor Cyan -NoNewline
+    $privTag = if ($IsElevated) { "admin" } else { "user" }
+    $vpnTag  = if (Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }) { "vpn:mullvad" } else { "vpn:off" }
+    Write-Host "winopsec " -ForegroundColor DarkGray -NoNewline
+    Write-Host "[$privTag | $vpnTag] " -ForegroundColor Cyan -NoNewline
+    Write-Host "> " -ForegroundColor White -NoNewline
     $rawInput = (Read-Host).Trim()
     $inputCmd = $rawInput.ToLower()
 
@@ -511,6 +682,15 @@ while ($true) {
             Write-Host ""
             Restore-OpSecState | Out-Null
             Write-Host ""
+        }
+        "^(quick|wizard|mode|modes)$" {
+            Invoke-GuidedWizard
+        }
+        "^(guide|howto)(\s+(.+))?$" {
+            Show-CommandGuide -Topic $Matches[3]
+        }
+        "^(help|\?)\s+(.+)$" {
+            Show-CommandGuide -Topic $Matches[2]
         }
         "^(\?|help|menu)$" {
             Write-Host ""
