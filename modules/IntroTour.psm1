@@ -1,5 +1,5 @@
-# IntroTour.psm1 - Cybernetic Onboarding, Voice Briefing & Script-Kiddie Friendly Tour
-# WinOpSec Sovereign Tier Multimedia Module
+# IntroTour.psm1 - Interactive Onboarding & Quick Briefing
+# WinOpSec Operational Utility
 
 function Speak-AudioVoice {
     param(
@@ -7,21 +7,19 @@ function Speak-AudioVoice {
         [switch]$Wait
     )
 
-    # 1. Try SAPI.SpVoice (COM)
     try {
         $voice = New-Object -ComObject SAPI.SpVoice -ErrorAction Stop
-        $voice.Rate = 0
+        $voice.Rate = 1
         $voice.Volume = 100
-        $flags = if ($Wait) { 0 } else { 1 } # 1 = SVSFlagsAsync
+        $flags = if ($Wait) { 0 } else { 1 }
         $voice.Speak($Text, $flags) | Out-Null
         return
     } catch {}
 
-    # 2. Try System.Speech.Synthesis (.NET)
     try {
         Add-Type -AssemblyName System.Speech -ErrorAction Stop
         $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer -ErrorAction Stop
-        $synth.Rate = 0
+        $synth.Rate = 1
         $synth.Volume = 100
         if ($Wait) {
             $synth.Speak($Text)
@@ -33,7 +31,7 @@ function Speak-AudioVoice {
 }
 
 function Play-CyberBeep {
-    param([int]$Freq = 1200, [int]$DurationMs = 80)
+    param([int]$Freq = 1000, [int]$DurationMs = 60)
     try {
         [Console]::Beep($Freq, $DurationMs)
     } catch {}
@@ -51,12 +49,11 @@ function Test-ConsoleKeyAvailable {
 function Write-AnimatedLine {
     param(
         [string]$Text,
-        [int]$CharDelayMs = 15,
-        [ConsoleColor]$Color = "White",
+        [int]$CharDelayMs = 12,
+        [ConsoleColor]$Color = "Gray",
         [switch]$NoNewline
     )
 
-    $interrupted = $false
     foreach ($char in $Text.ToCharArray()) {
         Write-Host $char -ForegroundColor $Color -NoNewline
         if ($CharDelayMs -gt 0) {
@@ -66,7 +63,6 @@ function Write-AnimatedLine {
             try {
                 $key = [Console]::ReadKey($true)
                 if ($key.Key -eq [ConsoleKey]::Spacebar -or $key.Key -eq [ConsoleKey]::Enter -or $key.Key -eq [ConsoleKey]::Escape) {
-                    $interrupted = $true
                     $idx = $Text.IndexOf($char)
                     if ($idx -lt ($Text.Length - 1)) {
                         Write-Host $Text.Substring($idx + 1) -ForegroundColor $Color -NoNewline
@@ -88,119 +84,93 @@ function Invoke-CyberIntro {
 
     Clear-Host
 
-    $delay = if ($Fast) { 0 } else { 20 }
+    $delay = if ($Fast) { 0 } else { 15 }
 
     Write-Host ""
-    Write-Host "  ================================================================================" -ForegroundColor DarkCyan
+    Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
 
     $asciiHello = @(
-        "      __  __     ______     __         __         ______    ",
-        "     /\ \_\ \   /\  ___\   /\ \       /\ \       /\  __ \   ",
-        "     \ \  __ \  \ \  __\   \ \ \____  \ \ \____  \ \ \/\ \  ",
-        "      \ \_\ \_\  \ \_____\  \ \_____\  \ \_____\  \ \_____\ ",
-        "       \/_/\/_/   \/_____/   \/_____/   \/_____/   \/_____/ "
+        "    _  _     _ _       ",
+        "   | || |___| | |___   ",
+        "   | __ / -_) | / _ \  ",
+        "   |_||_\___|_|_\___/  "
     )
 
     foreach ($line in $asciiHello) {
-        Write-Host $line -ForegroundColor Cyan
-        Start-Sleep -Milliseconds 30
+        Write-Host "  $line" -ForegroundColor White
+        Start-Sleep -Milliseconds 25
     }
 
-    Write-Host "  ================================================================================" -ForegroundColor DarkCyan
-    Write-Host "  [PRESS ANY KEY OR SPACEBAR TO SKIP ANIMATION]`n" -ForegroundColor DarkGray
+    Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  [press space or enter to skip]`n" -ForegroundColor DarkGray
 
-    Play-CyberBeep -Freq 900 -DurationMs 100
-    Play-CyberBeep -Freq 1400 -DurationMs 120
+    Play-CyberBeep -Freq 800 -DurationMs 60
+    Play-CyberBeep -Freq 1200 -DurationMs 80
 
     if (-not $VoiceMute) {
-        Speak-AudioVoice -Text "Hello. Welcome to WinOpSec. System integrity verified."
+        Speak-AudioVoice -Text "WinOpSec ready. Don't do stupid shit on public Wi-Fi. If you don't know the commands, just type quick."
     }
 
-    $greetings = @(
-        @{ Lang = "EN"; Text = "> Hello." },
-        @{ Lang = "TL"; Text = "> Kumusta." },
-        @{ Lang = "ES"; Text = "> Hola." },
-        @{ Lang = "FR"; Text = "> Bonjour." },
-        @{ Lang = "JA"; Text = "> Konnichiwa." },
-        @{ Lang = "SYS"; Text = "> SOVEREIGN DEFENSE MATRIX INITIALIZED." }
-    )
-
-    foreach ($g in $greetings) {
-        $color = if ($g.Lang -eq "SYS") { "Green" } else { "Gray" }
-        Write-AnimatedLine -Text ("  {0,-4} {1}" -f "[$($g.Lang)]", $g.Text) -CharDelayMs $delay -Color $color
-        Start-Sleep -Milliseconds 120
-    }
+    Write-AnimatedLine -Text "  > hello." -CharDelayMs $delay -Color Gray
+    Start-Sleep -Milliseconds 100
+    Write-AnimatedLine -Text "  > kumusta." -CharDelayMs $delay -Color Gray
+    Start-Sleep -Milliseconds 100
+    Write-AnimatedLine -Text "  > winopsec ready." -CharDelayMs $delay -Color Green
+    Start-Sleep -Milliseconds 150
 
     Write-Host ""
-    Play-CyberBeep -Freq 1800 -DurationMs 150
+    Play-CyberBeep -Freq 1400 -DurationMs 80
 
-    Write-Host "  --------------------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  [ OPERATOR ONBOARDING BRIEFING: HOW TO WIELD WINOPSEC ]" -ForegroundColor Yellow
-    Write-Host "  --------------------------------------------------------------------------------`n" -ForegroundColor DarkGray
+    Write-Host "  -- quick operator briefing ---------------------------------" -ForegroundColor DarkGray
 
-    if (-not $VoiceMute) {
-        Speak-AudioVoice -Text "Here is your operational briefing."
-    }
+    # 1. Host Hardening
+    Write-Host "`n  [1] host hardening" -ForegroundColor White
+    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Pinapatay ang Windows tracking at nila-lock ang memory." -ForegroundColor Gray
+    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Para hindi ma-dump ang passwords mo sa LSASS gamit ang Mimikatz." -ForegroundColor DarkGray
+    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "2" -ForegroundColor Green
+    Start-Sleep -Milliseconds 250
 
-    # Chapter 1
-    Write-Host "  [01] THE SHIELD // HOST HARDENING" -ForegroundColor Cyan
-    Write-Host "       What it does : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Locks kernel memory, kills telemetry, and blocks passwords theft." -ForegroundColor White
-    Write-Host "       Why you care : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Stops Mimikatz from stealing credentials, disables hiberfil RAM bleeds," -ForegroundColor Gray
-    Write-Host "                      and blocks Thunderbolt PCILeech physical memory attacks." -ForegroundColor Gray
-    Write-Host "       Quick key    : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Type '2' (telemetry) in the prompt.`n" -ForegroundColor Yellow
-    Start-Sleep -Milliseconds 400
+    # 2. VPN & Browser
+    Write-Host "`n  [2] vpn & browser shield" -ForegroundColor White
+    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Mullvad tunnel lock + anti-WebRTC leak sa browser." -ForegroundColor Gray
+    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Para hindi sumingaw ang totoong IP mo at immune sa stealer malware." -ForegroundColor DarkGray
+    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "mullvad harden" -ForegroundColor Green
+    Start-Sleep -Milliseconds 250
 
-    # Chapter 2
-    Write-Host "  [02] THE GHOST // QUANTUM VPN & BROWSER SHIELD" -ForegroundColor Cyan
-    Write-Host "       What it does : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Enforces Mullvad WFP killswitch, DAITA traffic shaping & anti-stealers." -ForegroundColor White
-    Write-Host "       Why you care : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Encrypts tunnel with Kyber-1024, blocks WebRTC IP leaks, and locks" -ForegroundColor Gray
-    Write-Host "                      browser SQLite password vaults from Lumma/RedLine infostealers." -ForegroundColor Gray
-    Write-Host "       Quick key    : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Type 'mullvad harden' or 'browser'`n" -ForegroundColor Yellow
-    Start-Sleep -Milliseconds 400
+    # 3. Public Sentry
+    Write-Host "`n  [3] public sentry (pang-cafe o airport)" -ForegroundColor White
+    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Tripwire kapag nakakabit sa pampublikong Wi-Fi." -ForegroundColor Gray
+    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Kapag may nag-scan sa'yo o nag-plug ng BadUSB, auto-cut agad ang net at lock ang PC." -ForegroundColor DarkGray
+    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "sentry -autopanic" -ForegroundColor Green
+    Start-Sleep -Milliseconds 250
 
-    # Chapter 3
-    Write-Host "  [03] THE SENTRY // PUBLIC WI-FI TRIPWIRE" -ForegroundColor Cyan
-    Write-Host "       What it does : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Real-time perimeter surveillance for hostile public networks." -ForegroundColor White
-    Write-Host "       Why you care : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "If someone on your cafe Wi-Fi does ARP poisoning (Bettercap), port scans," -ForegroundColor Gray
-    Write-Host "                      or plugs in a Rubber Ducky BadUSB, it severs net and locks PC." -ForegroundColor Gray
-    Write-Host "       Quick key    : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Type 'sentry -autopanic' when sitting in public.`n" -ForegroundColor Yellow
-    Start-Sleep -Milliseconds 400
+    # 4. Anti-Forensics & Camouflage
+    Write-Host "`n  [4] anti-forensics & camouflage" -ForegroundColor White
+    Write-Host "      ano 'to   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Linis ng logs sabay tanim ng normal na civilian files." -ForegroundColor Gray
+    Write-Host "      bakit     : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "Delikado ang sobrang linis na laptop sa forensics. Kailangan magmukhang ordinaryong user." -ForegroundColor DarkGray
+    Write-Host "      command   : " -ForegroundColor DarkGray -NoNewline
+    Write-Host "chameleon" -ForegroundColor Green
+    Start-Sleep -Milliseconds 250
 
-    # Chapter 4
-    Write-Host "  [04] THE CHAMELEON // FORENSIC PLAUSIBLE DENIABILITY" -ForegroundColor Cyan
-    Write-Host "       What it does : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Neutralizes execution logs & seeds innocent civilian activity." -ForegroundColor White
-    Write-Host "       Why you care : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Defeats the SANS FOR500 'Too Clean Machine' trap. Wipes PCA/ShellBags," -ForegroundColor Gray
-    Write-Host "                      then plants synthetic student/civilian docs so you blend in." -ForegroundColor Gray
-    Write-Host "       Quick key    : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Type 'chameleon' to deploy noise; 'chameleon -purge' to remove.`n" -ForegroundColor Yellow
-    Start-Sleep -Milliseconds 400
+    # 5. Cheat code
+    Write-Host "`n  [5] para sa mga tinatamad o nalilito" -ForegroundColor White
+    Write-Host "      Kung diko magets ang commands, i-type mo lang ito sa prompt:" -ForegroundColor Gray
+    Write-Host "`n          quick`n" -ForegroundColor Green
+    Write-Host "      1-click menu lang yan para sa Cafe Mode, Lockdown, o Linis." -ForegroundColor DarkGray
 
-    # Chapter 5 - The Script Kiddie Friendly Cheat Code
-    Write-Host "  [05] THE CHEAT CODE // GUIDED SCENARIO WIZARD" -ForegroundColor Green
-    Write-Host "       If you don't know what command to use, just type:" -ForegroundColor White
-    Write-Host "`n           quick`n" -ForegroundColor Green
-    Write-Host "       1-click buttons for: Cafe Mode, Full Lockdown, Ephemeral Browse, or Scrub!" -ForegroundColor DarkGray
-    Write-Host "  --------------------------------------------------------------------------------`n" -ForegroundColor DarkGray
-
-    if (-not $VoiceMute) {
-        Speak-AudioVoice -Text "If you get lost, just type quick. WinOpSec will handle the rest. System ready."
-    }
-
-    Play-CyberBeep -Freq 1500 -DurationMs 100
-    Play-CyberBeep -Freq 2200 -DurationMs 150
-
-    Write-Host "  [+] Operator briefing complete. Press any key to enter main console... " -ForegroundColor Cyan -NoNewline
+    Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  press any key to start... " -ForegroundColor DarkGray -NoNewline
     try {
         if (-not [System.Console]::IsInputRedirected) {
             $null = [Console]::ReadKey($true)
