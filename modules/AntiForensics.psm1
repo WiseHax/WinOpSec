@@ -417,6 +417,57 @@ function Invoke-ShellBagsSanitize {
     Write-Host "  ok  purged Explorer ShellBags (BagMRU & Bags folder navigation histories)" -ForegroundColor Green
 }
 
+function Invoke-SrumNeutralize {
+    if (-not (Test-IsWindowsOS)) { return }
+    if (-not (Test-AdminPrivilege)) {
+        Write-Host "  [!] SRUM neutralization requires administrator privileges." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  -- neutralizing System Resource Usage Monitor (SRUM)..." -ForegroundColor Cyan
+    try {
+        sc.exe stop DPS 2>$null | Out-Null
+        $dpsKey = "HKLM:\SYSTEM\CurrentControlSet\Services\DPS"
+        if (Test-Path $dpsKey) {
+            Set-ItemProperty -Path $dpsKey -Name "Start" -Type DWord -Value 4 -Force -ErrorAction SilentlyContinue
+        }
+
+        $sruDir = "C:\Windows\System32\sru"
+        if (Test-Path $sruDir) {
+            Get-ChildItem -Path $sruDir -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    [System.IO.File]::WriteAllBytes($_.FullName, [byte[]]@())
+                    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+                } catch {}
+            }
+            Write-Host "  ok  purged SRUM database (SRUDB.dat) & transaction logs (network/app execution telemetry)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  !!  SRUM neutralization failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+function Invoke-SearchIndexWipe {
+    if (-not (Test-IsWindowsOS)) { return }
+    if (-not (Test-AdminPrivilege)) {
+        Write-Host "  [!] Search index wiping requires administrator privileges." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  -- purging Windows Search database (Windows.edb)..." -ForegroundColor Cyan
+    try {
+        sc.exe stop WSearch 2>$null | Out-Null
+        $edbPath = "C:\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb"
+        if (Test-Path $edbPath) {
+            try {
+                [System.IO.File]::WriteAllBytes($edbPath, [byte[]]@())
+                Remove-Item -Path $edbPath -Force -ErrorAction SilentlyContinue
+            } catch {}
+            Write-Host "  ok  purged Windows.edb search index (deleted file carving defense)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  !!  Search index purge failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 function Invoke-MetadataScrub {
     param([string]$TargetPath)
     if (-not $TargetPath -or -not (Test-Path $TargetPath)) {
@@ -575,7 +626,24 @@ function Audit-DeletedFootprint {
         $actColor = if (-not $actExists) { "Green" } else { "Yellow" }
         Write-Host ("  [{0}] {1,-34} {2}" -f $actBadge, "Windows Timeline (ActivitiesCache)", $(if ($actExists) { "tracks past app & web sessions" } else { "clean" })) -ForegroundColor $actColor
 
-        # 5. Unallocated Slack Space (Deallocated sectors)
+        # 5. SRUM (System Resource Usage Monitor) ESE Database
+        $srumPath = "C:\Windows\System32\sru\SRUDB.dat"
+        $srumExists = Test-Path $srumPath -ErrorAction SilentlyContinue
+        $srumBadge = if (-not $srumExists) { "PASS" } else { "WARN" }
+        $srumColor = if (-not $srumExists) { "Green" } else { "Yellow" }
+        Write-Host ("  [{0}] {1,-34} {2}" -f $srumBadge, "SRUM Network/Process ESE DB", $(if ($srumExists) { "tracks 30-day process execution & egress bytes" } else { "clean / unlinked" })) -ForegroundColor $srumColor
+
+        # 6. Windows Search Index Database (Windows.edb)
+        $edbPath = "C:\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb"
+        $edbSize = 0
+        if (Test-Path $edbPath -ErrorAction SilentlyContinue) {
+            $edbSize = [math]::Round((Get-Item $edbPath -Force -ErrorAction SilentlyContinue).Length / 1MB, 2)
+        }
+        $edbBadge = if ($edbSize -eq 0) { "PASS" } else { "WARN" }
+        $edbColor = if ($edbSize -eq 0) { "Green" } else { "Yellow" }
+        Write-Host ("  [{0}] {1,-34} {2}" -f $edbBadge, "Windows Search Index (Windows.edb)", $(if ($edbSize -gt 0) { "$edbSize MB (caches deleted files & message bodies)" } else { "clean / disabled" })) -ForegroundColor $edbColor
+
+        # 7. Unallocated Slack Space (Deallocated sectors)
         Write-Host "  [INFO] Drive C: Unallocated Slack Space   raw sectors of past deleted files can be carved until zero-filled" -ForegroundColor Gray
         Write-Host "`n  tip: run 'wipe-deleted' to purge VSS shadows, reset USN deletion logs, and re-trim SSD blocks." -ForegroundColor DarkGray
     } else {
@@ -625,7 +693,13 @@ function Invoke-DeepSanitize {
             }
         } catch {}
 
-        # 5. Issue SSD ReTrim so SSD controller immediately discards deleted sector blocks
+        # 5. Neutralize SRUM (System Resource Usage Monitor)
+        Invoke-SrumNeutralize
+
+        # 6. Purge Windows Search Indexer Database
+        Invoke-SearchIndexWipe
+
+        # 7. Issue SSD ReTrim so SSD controller immediately discards deleted sector blocks
         try {
             Optimize-Volume -DriveLetter C -ReTrim -Verbose:$false -ErrorAction SilentlyContinue | Out-Null
             Write-Host "  ok  issued SSD ReTrim on Drive C: (controller garbage-collection)" -ForegroundColor Green
@@ -646,5 +720,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe
 
