@@ -156,4 +156,70 @@ function Test-ArpPoisoning {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo
+function Test-PortScanActivity {
+    $alerts = @()
+    $synCount = 0
+    $probeSources = [System.Collections.Generic.List[string]]::new()
+
+    try {
+        $conns = Get-NetTCPConnection -ErrorAction SilentlyContinue
+        if ($conns) {
+            foreach ($c in $conns) {
+                if ($c.State -eq "SynReceived") {
+                    $synCount++
+                    if ($c.RemoteAddress -and $c.RemoteAddress -ne "0.0.0.0") {
+                        $probeSources.Add("$($c.RemoteAddress):$($c.LocalPort)")
+                    }
+                }
+                if ($c.LocalPort -in @(135, 137, 138, 139, 445, 3389, 5985) -and $c.State -in @("Established", "SynReceived")) {
+                    if ($c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1" -and $c.RemoteAddress -ne "0.0.0.0") {
+                        $alerts += [PSCustomObject]@{
+                            Severity = "HIGH"
+                            Type     = "SENSITIVE_PORT_INBOUND_HIT"
+                            Target   = "$($c.LocalPort) ($($c.RemoteAddress))"
+                            Detail   = "Inbound active TCP socket on port $($c.LocalPort) from $($c.RemoteAddress)."
+                        }
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    if ($alerts.Count -eq 0 -and $synCount -eq 0) {
+        try {
+            $netstat = netstat -ano 2>$null
+            foreach ($line in $netstat) {
+                if ($line -match 'SYN_RECEIVED') {
+                    $synCount++
+                    if ($line -match '^\s*TCP\s+\S+:(\d+)\s+(\S+):\d+\s+SYN_RECEIVED') {
+                        $probeSources.Add("$($Matches[2]) -> port $($Matches[1])")
+                    }
+                }
+                if ($line -match '^\s*TCP\s+\S+:(135|139|445|3389|5985)\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+\s+ESTABLISHED') {
+                    $remIp = $Matches[2]
+                    if ($remIp -notmatch "^127\.") {
+                        $alerts += [PSCustomObject]@{
+                            Severity = "HIGH"
+                            Type     = "SENSITIVE_PORT_INBOUND_HIT"
+                            Target   = "$remIp"
+                            Detail   = "Established inbound connection on sensitive port from $remIp."
+                        }
+                    }
+                }
+            }
+        } catch {}
+    }
+
+    if ($synCount -ge 2) {
+        $alerts += [PSCustomObject]@{
+            Severity = "HIGH"
+            Type     = "SYN_PORT_SCAN_DETECTED"
+            Target   = "$synCount half-open probes"
+            Detail   = "Half-open SYN scan detected ($synCount probes: $($probeSources -join ', '))."
+        }
+    }
+
+    return $alerts
+}
+
+Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity
