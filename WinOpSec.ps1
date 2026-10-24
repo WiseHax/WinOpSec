@@ -13,6 +13,10 @@ param (
     [switch]$Srum,
     [switch]$ScrubWifi,
     [switch]$RandomizeHwId,
+    [switch]$DeadMan,
+    [string]$DeadManDrive,
+    [switch]$WipeTokens,
+    [switch]$WipeScreenshots,
     [string]$Scrub,
     [switch]$SpoofMac,
     [switch]$ScanSecrets,
@@ -24,7 +28,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -217,6 +221,9 @@ function Show-Menu {
     Write-Host "    wipe-shellbags    purge Explorer ShellBags (BagMRU & Bags folder navigation histories)"
     Write-Host "    wipe-srum         purge SRUM ESE database (SRUDB.dat) & lock DPS telemetry service"
     Write-Host "    scrub-wifi        purge NetworkList Wi-Fi profiles & BSSIDs (anti-WiGLE triangulation)"
+    Write-Host "    wipe-tokens       neutralize Telegram, Discord, Signal & Slack desktop auth sessions"
+    Write-Host "    wipe-screenshots  shred Windows Snipping Tool temp state & Acropalypse image caches"
+    Write-Host "    deadman           arm USB Dead Man's Switch (instant panic on physical USB pull)"
     Write-Host "    wipe-deleted      purge VSS shadows, reset USN deletion logs & re-trim SSD ('wipe-deleted -cipher')"
     Write-Host "    wipe-logs         purge all 400+ Windows event logs (Security, System, PowerShell, WLAN)"
     Write-Host "    scrub <path>      strip EXIF/NTFS Zone.Identifier & normalize file timestamps"
@@ -238,9 +245,12 @@ if ($WipeTraces)    { Write-Header; Invoke-TraceWipe; exit }
 if ($PcaWipe)       { Write-Header; Invoke-PcaWipe; exit }
 if ($ShellBags)     { Write-Header; Invoke-ShellBagsSanitize; exit }
 if ($Srum)          { Write-Header; Invoke-SrumNeutralize; exit }
-if ($ScrubWifi)     { Write-Header; Invoke-NetworkListScrub; exit }
-if ($RandomizeHwId) { Write-Header; Invoke-HwIdRandomize; exit }
-if ($Scrub)         { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; exit }
+if ($ScrubWifi)        { Write-Header; Invoke-NetworkListScrub; exit }
+if ($RandomizeHwId)    { Write-Header; Invoke-HwIdRandomize; exit }
+if ($DeadMan)          { Write-Header; Invoke-DeadManSwitch -DriveLetter $DeadManDrive; exit }
+if ($WipeTokens)       { Write-Header; Invoke-TokenSanitize; exit }
+if ($WipeScreenshots)  { Write-Header; Invoke-ScreenshotCacheWipe; exit }
+if ($Scrub)            { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; exit }
 if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
 if ($Panic)         { Write-Header; Invoke-PanicProtocol; exit }
@@ -414,6 +424,22 @@ while ($true) {
         "^(scrub-wifi|wifi-scrub|wipe-wifi)$" {
             Write-Host ""
             Invoke-NetworkListScrub
+            Write-Host ""
+        }
+        "^(wipe-tokens|tokens|clean-tokens)$" {
+            Write-Host ""
+            Invoke-TokenSanitize
+            Write-Host ""
+        }
+        "^(wipe-screenshots|screenshots|scrub-screenshots)$" {
+            Write-Host ""
+            Invoke-ScreenshotCacheWipe
+            Write-Host ""
+        }
+        "^deadman(\s+(-drive\s+(\S+)|(\S+:)))?$" {
+            $drv = if ($Matches[3]) { $Matches[3] } elseif ($Matches[4]) { $Matches[4] } else { $null }
+            Write-Host ""
+            Invoke-DeadManSwitch -DriveLetter $drv
             Write-Host ""
         }
         "^wipe-deleted(\s+(-cipher|cipher))?$" {

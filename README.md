@@ -45,6 +45,9 @@ Commands inside `opsec>` prompt (accepts number or command name):
 - `wipe-shellbags` — purge Explorer ShellBags (`BagMRU` & `Bags` folder navigation histories)
 - `wipe-srum` — neutralize SRUM ESE database (`SRUDB.dat`) and lock Diagnostic Policy Service (`DPS`)
 - `scrub-wifi` — wipe NetworkList saved Wi-Fi profiles and historical gateway BSSIDs (anti-WiGLE triangulation)
+- `wipe-tokens` — neutralize Telegram Desktop (`tdata`), Discord, Signal, and Slack active session auth tokens
+- `wipe-screenshots` — scrub Windows Snipping Tool (`ScreenSketch`) temporary buffers & Acropalypse recovery caches
+- `deadman` — arm USB Dead Man's Switch (monitors wrist-lanyard USB drive; triggers immediate panic/poweroff on physical pull)
 - `wipe-deleted` — purge VSS shadows, reset USN deletion logs, zero SRUM/Search databases & re-trim SSD (`wipe-deleted -cipher` for DoD 3-pass zeroing)
 - `wipe-logs` — purge all 400+ Windows event log channels (Security, System, App, ScriptBlock, WLAN)
 - `scrub <path>` — strip image EXIF metadata, remove NTFS `Zone.Identifier` origin streams, and normalize file MACB timestamps
