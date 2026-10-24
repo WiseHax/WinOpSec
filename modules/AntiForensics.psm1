@@ -137,6 +137,19 @@ function Audit-Traces {
             Count    = if ($clearedProofCount -gt 0) { "$clearedProofCount log-wipe events" } else { "0 events (clean)" }
             Status   = if ($clearedProofCount -eq 0) { "CLEAN" } else { "EXPOSED" }
         }
+
+        # Registry Transaction Journals (.LOG1, .LOG2, .regtrans-ms)
+        $regLogSize = 0
+        $regLogs = @(Get-ChildItem "$env:USERPROFILE", "$env:LOCALAPPDATA\Microsoft\Windows" -Filter "*.LOG*" -Force -ErrorAction SilentlyContinue)
+        if ($regLogs.Count -gt 0) {
+            $regLogSize = [math]::Round(($regLogs | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
+        }
+        $results += [PSCustomObject]@{
+            Artifact = "Registry Transaction Logs"
+            Location = "NTUSER.DAT / UsrClass .LOG*"
+            Count    = "$regLogSize MB ($($regLogs.Count) journals)"
+            Status   = if ($regLogSize -eq 0) { "CLEAN" } else { "EXPOSED" }
+        }
     } else {
         $uHome = Get-UserHome
         foreach ($shFile in @(".bash_history", ".zsh_history", ".python_history", ".lesshst")) {
@@ -641,6 +654,31 @@ function Invoke-ScreenshotCacheWipe {
     Write-Host "  ok  shredded $scrubbed cached screenshot buffers (defeats Acropalypse image carving)" -ForegroundColor Green
 }
 
+function Invoke-RegistryLogSanitize {
+    if (-not (Test-IsWindowsOS)) { return }
+    Write-Host "  -- committing registry hives & flushing transaction journals..." -ForegroundColor Cyan
+    try {
+        [Microsoft.Win32.Registry]::CurrentUser.Flush()
+        if (Test-AdminPrivilege) {
+            [Microsoft.Win32.Registry]::LocalMachine.Flush()
+        }
+
+        # Purge orphan transaction containers (*.regtrans-ms)
+        $orphanLogs = @(Get-ChildItem "$env:USERPROFILE", "$env:LOCALAPPDATA\Microsoft\Windows" -Filter "*.regtrans-ms" -Force -ErrorAction SilentlyContinue)
+        $purgedCount = 0
+        foreach ($ol in $orphanLogs) {
+            try {
+                [System.IO.File]::WriteAllBytes($ol.FullName, [byte[]]@())
+                Remove-Item -Path $ol.FullName -Force -ErrorAction SilentlyContinue
+                $purgedCount++
+            } catch {}
+        }
+        Write-Host "  ok  flushed active registry transaction state & purged $purgedCount journal containers" -ForegroundColor Green
+    } catch {
+        Write-Host "  !!  registry log sanitize failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 function Invoke-PanicProtocol {
     param([switch]$PowerOff)
     Write-Host "`n  ================================================================" -ForegroundColor Red
@@ -854,5 +892,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize
 
