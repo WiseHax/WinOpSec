@@ -223,100 +223,100 @@ function Show-Usage {
 }
 
 function Show-Menu {
-    Write-Host "  ============================== OPERATIONAL PILLARS ==============================" -ForegroundColor DarkCyan
-    Write-Host "  Type a command, category number, or 'quick' for the automated scenario wizard.`n" -ForegroundColor DarkGray
+    Write-Host "  -- winopsec v4.0 -------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  pili ka sa options sa ibaba o i-type ang 'quick' para sa 1-click menu.`n" -ForegroundColor DarkGray
 
-    Write-Host "  [1] AUDIT & RECON" -ForegroundColor Cyan
-    Write-Host "      1 / audit       - Full system posture check & security scoring" -ForegroundColor White
-    Write-Host "      8 / recon       - Inspect listening ports, active sockets & VPN tunnel" -ForegroundColor Gray
-    Write-Host "      7 / secrets     - Scan disk for exposed private keys, .env & API tokens" -ForegroundColor Gray
-    Write-Host "      hwid            - Inspect hardware GUIDs (MachineGuid, SQM ID)" -ForegroundColor Gray
+    Write-Host "  [1] audit & recon" -ForegroundColor White
+    Write-Host "      1 / audit       - buong posture check at security score" -ForegroundColor Gray
+    Write-Host "      8 / recon       - open listening ports, active sockets at VPN tunnel" -ForegroundColor DarkGray
+    Write-Host "      7 / secrets     - scan ng hard drive para sa exposed keys at .env" -ForegroundColor DarkGray
+    Write-Host "      hwid            - machine GUIDs (MachineGuid, SQM ID)" -ForegroundColor DarkGray
 
-    Write-Host "`n  [2] REAL-TIME DEFENSE (PUBLIC WI-FI & SENTRY)" -ForegroundColor Cyan
-    Write-Host "      sentry          - Real-time perimeter guard (ARP poison, port scans, mic tap)" -ForegroundColor White
-    Write-Host "      sentry -autopanic - Armed sentry: auto-cuts Wi-Fi & locks PC on threat" -ForegroundColor Yellow
-    Write-Host "      deadman         - Arm USB BusKill lanyard trigger (panic on physical pull)" -ForegroundColor Gray
-    Write-Host "      9 / mac         - Spoof active network interface MAC ('mac reset' to restore)" -ForegroundColor Gray
+    Write-Host "`n  [2] public wi-fi & sentry (defense)" -ForegroundColor White
+    Write-Host "      sentry          - real-time tripwire (ARP poison, port scan, mic tap)" -ForegroundColor Gray
+    Write-Host "      sentry -autopanic - auto-cut ng Wi-Fi at lock screen kapag may umatake" -ForegroundColor Green
+    Write-Host "      deadman         - USB lanyard trigger (panic kapag hinablot ang laptop)" -ForegroundColor DarkGray
+    Write-Host "      9 / mac         - spoof ng MAC address ('mac reset' para ibalik)" -ForegroundColor DarkGray
 
-    Write-Host "`n  [3] SYSTEM HARDENING & SHIELDS" -ForegroundColor Cyan
-    Write-Host "      5 / harden-all  - Apply all OS, kernel, network, Mullvad & browser shields" -ForegroundColor White
-    Write-Host "      mullvad harden  - Enforce WFP killswitch, DAITA traffic shaping & post-quantum" -ForegroundColor Gray
-    Write-Host "      browser         - Block WebRTC leaks, lock password vaults & force DoH" -ForegroundColor Gray
-    Write-Host "      browser launch  - Open ephemeral isolated browser session" -ForegroundColor Gray
+    Write-Host "`n  [3] system hardening & shields" -ForegroundColor White
+    Write-Host "      5 / harden-all  - i-apply lahat ng host, network, Mullvad at browser shields" -ForegroundColor Gray
+    Write-Host "      mullvad harden  - post-quantum tunnel, DAITA at WFP killswitch" -ForegroundColor DarkGray
+    Write-Host "      browser         - block WebRTC leak at password vault lock" -ForegroundColor DarkGray
+    Write-Host "      browser launch  - buksan ang private ephemeral browser" -ForegroundColor DarkGray
 
-    Write-Host "`n  [4] ANTI-FORENSICS & EVIDENCE CLEANUP" -ForegroundColor Cyan
-    Write-Host "      6 / wipe        - Shred histories, RunMRU, crash dumps, ADS & browser caches" -ForegroundColor White
-    Write-Host "      wipe-pca        - Neutralize Windows 11 Program Compatibility execution logs" -ForegroundColor Gray
-    Write-Host "      wipe-shellbags  - Purge Explorer folder navigation tracking (ShellBags)" -ForegroundColor Gray
-    Write-Host "      wipe-reglogs    - Flush registry transaction logs (.LOG1/.LOG2) to disk" -ForegroundColor Gray
-    Write-Host "      wipe-deleted    - Purge VSS shadow copies, zero free space & re-trim SSD" -ForegroundColor Gray
-    Write-Host "      scrub <path>    - Strip EXIF/metadata & normalize file timestamps" -ForegroundColor Gray
+    Write-Host "`n  [4] anti-forensics & linis" -ForegroundColor White
+    Write-Host "      6 / wipe        - burahin ang history, runMRU, crash dumps at caches" -ForegroundColor Gray
+    Write-Host "      wipe-pca        - burahin ang Windows 11 app execution history" -ForegroundColor DarkGray
+    Write-Host "      wipe-shellbags  - burahin ang folder navigation tracking" -ForegroundColor DarkGray
+    Write-Host "      wipe-reglogs    - i-flush ang registry transaction logs (.LOG1/.LOG2)" -ForegroundColor DarkGray
+    Write-Host "      wipe-deleted    - burahin ang shadow copies at i-trim ang SSD" -ForegroundColor DarkGray
+    Write-Host "      scrub <path>    - tanggalin ang metadata at baguhin ang timestamps" -ForegroundColor DarkGray
 
-    Write-Host "`n  [5] FORENSIC CAMOUFLAGE & DECEPTION" -ForegroundColor Cyan
-    Write-Host "      chameleon       - Seed realistic civilian activity (defeats 'Too Clean Machine')" -ForegroundColor White
-    Write-Host "      chameleon -purge - Revert synthetic camouflage files back to zero-state" -ForegroundColor Gray
+    Write-Host "`n  [5] civilian camouflage" -ForegroundColor White
+    Write-Host "      chameleon       - magtanim ng normal na civilian files (para hindi suspicious)" -ForegroundColor Gray
+    Write-Host "      chameleon -purge - tanggalin ang decoy files" -ForegroundColor DarkGray
 
-    Write-Host "`n  [!] DURESS & NAVIGATION" -ForegroundColor Red
-    Write-Host "      quick           - Launch Guided Operational Scenario Wizard (Recommended)" -ForegroundColor Green
-    Write-Host "      intro / tour    - Play animated cyber onboarding with voice briefing" -ForegroundColor Magenta
-    Write-Host "      guide <cmd>     - Explain what any feature does in simple human terms" -ForegroundColor DarkCyan
-    Write-Host "      panic           - Emergency duress protocol: sever routes, wipe traces & lock" -ForegroundColor Red
-    Write-Host "      panic -poweroff - Emergency hard poweroff with zero disk writes" -ForegroundColor DarkRed
-    Write-Host "      restore         - Rollback system settings from saved backup snapshot" -ForegroundColor Gray
-    Write-Host "      q / quit        - Exit console" -ForegroundColor DarkGray
-    Write-Host "  =================================================================================`n" -ForegroundColor DarkCyan
+    Write-Host "`n  [!] shortcuts & navigation" -ForegroundColor White
+    Write-Host "      quick           - 1-click wizard para sa mga tinatamad mag-isip" -ForegroundColor Green
+    Write-Host "      intro           - pakinggan ang boses at animated tutorial" -ForegroundColor Gray
+    Write-Host "      guide <cmd>     - basahin kung para saan ang command" -ForegroundColor DarkGray
+    Write-Host "      panic           - emergency cut ng Wi-Fi, wipe traces at lock screen" -ForegroundColor Red
+    Write-Host "      panic -poweroff - emergency hard poweroff agad" -ForegroundColor DarkRed
+    Write-Host "      restore         - ibalik ang dating settings galing sa snapshot" -ForegroundColor DarkGray
+    Write-Host "      q / quit        - exit" -ForegroundColor DarkGray
+    Write-Host "  ------------------------------------------------------------------------------`n" -ForegroundColor DarkGray
 }
 
 function Invoke-GuidedWizard {
-    Write-Host "`n  ================= GUIDED OPERATIONAL SCENARIO WIZARD =================" -ForegroundColor Green
-    Write-Host "  Choose your current operational situation for 1-click execution:`n" -ForegroundColor Gray
+    Write-Host "`n  -- 1-click scenario menu -----------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  Piliin ang sitwasyon mo ngayon:`n" -ForegroundColor Gray
 
-    Write-Host "  [1] Cafe / Public Wi-Fi Mode" -ForegroundColor Yellow
-    Write-Host "      -> Spoofs MAC address, locks Mullvad VPN, and activates Sentry Monitor with Auto-Panic." -ForegroundColor DarkGray
+    Write-Host "  [1] Cafe / Public Wi-Fi Mode" -ForegroundColor White
+    Write-Host "      -> Spoof MAC, lock Mullvad VPN, at bantay Sentry with Auto-Panic." -ForegroundColor DarkGray
 
-    Write-Host "  [2] Complete Host Lockdown" -ForegroundColor Cyan
-    Write-Host "      -> Applies kernel LSASS PPL, disables telemetry/WDigest, blocks LLMNR/NetBIOS, and saves backup." -ForegroundColor DarkGray
+    Write-Host "  [2] Complete Host Lockdown" -ForegroundColor White
+    Write-Host "      -> I-lock ang LSASS memory, patayin ang telemetry, at i-block ang leaks." -ForegroundColor DarkGray
 
-    Write-Host "  [3] Secure Ephemeral Browsing" -ForegroundColor Magenta
-    Write-Host "      -> Hardens browsers against WebRTC/vault theft and launches private ephemeral browser." -ForegroundColor DarkGray
+    Write-Host "  [3] Secure Ephemeral Browsing" -ForegroundColor White
+    Write-Host "      -> Block WebRTC leaks at buksan ang private browser session." -ForegroundColor DarkGray
 
-    Write-Host "  [4] Post-Session Forensics Scrub & Camouflage" -ForegroundColor Green
-    Write-Host "      -> Purges execution traces (PCA, ShellBags, RunMRU) and injects civilian Chameleon noise." -ForegroundColor DarkGray
+    Write-Host "  [4] Post-Session Forensics Scrub & Camouflage" -ForegroundColor White
+    Write-Host "      -> Burahin ang PCA/ShellBags at magtanim ng civilian decoy files." -ForegroundColor DarkGray
 
     Write-Host "  [5] Full Security Posture Audit" -ForegroundColor White
-    Write-Host "      -> Scans all 47 defensive benchmarks and calculates security score." -ForegroundColor DarkGray
+    Write-Host "      -> I-scan lahat ng 47 checks para makita ang score mo." -ForegroundColor DarkGray
 
-    Write-Host "  [0] Cancel / Back to menu" -ForegroundColor DarkGray
+    Write-Host "  [0] Back / Cancel" -ForegroundColor DarkGray
     Write-Host ""
 
-    Write-Host "wizard> Select option [0-5]: " -ForegroundColor Green -NoNewline
+    Write-Host "pili [0-5]: " -ForegroundColor Green -NoNewline
     $sel = (Read-Host).Trim()
 
     switch ($sel) {
         "1" {
-            Write-Host "`n  [+] Engaging Cafe / Public Wi-Fi Mode..." -ForegroundColor Yellow
+            Write-Host "`n  [+] Cafe Mode: spoofing MAC & locking Mullvad..." -ForegroundColor Gray
             Invoke-MacSpoof
             Invoke-MullvadPartner -Action "harden"
-            Write-Host "  [+] Starting Sentry Tripwire with Auto-Panic active...`n" -ForegroundColor Green
+            Write-Host "  [+] Sentry armed with Auto-Panic active...`n" -ForegroundColor Green
             Invoke-SentryMonitor -AutoPanic
         }
         "2" {
-            Write-Host "`n  [+] Engaging Complete Host Lockdown..." -ForegroundColor Cyan
+            Write-Host "`n  [+] Inilalapat ang complete host lockdown..." -ForegroundColor Gray
             Invoke-HardenAll
         }
         "3" {
-            Write-Host "`n  [+] Hardening Browser and launching isolated instance..." -ForegroundColor Magenta
+            Write-Host "`n  [+] Binubuksan ang hardened ephemeral browser..." -ForegroundColor Gray
             Harden-Browsers
             Start-HardenedBrowser
         }
         "4" {
-            Write-Host "`n  [+] Scrubbing Forensics & Deploying Chameleon Camouflage..." -ForegroundColor Green
+            Write-Host "`n  [+] Nililinis ang execution logs at nagtatanim ng chameleon decoys..." -ForegroundColor Gray
             Invoke-TraceWipe
             Invoke-PcaWipe
             Invoke-ShellBagsSanitize
             Invoke-RegistryLogSanitize
             Invoke-ChameleonNoise
-            Write-Host "  [+] Traces sanitized and civilian noise active." -ForegroundColor Green
+            Write-Host "  [+] Malinis na at may disguise noise na active." -ForegroundColor Green
         }
         "5" {
             Write-Host ""
