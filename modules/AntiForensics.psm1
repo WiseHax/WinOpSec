@@ -71,14 +71,27 @@ function Audit-Traces {
 
         $recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
         $recentCount = 0
+        $recentStatus = "CLEAN"
+        $recentDetail = "0 links"
         if (Test-Path $recentPath -ErrorAction SilentlyContinue) {
-            $recentCount = @(Get-ChildItem -Path $recentPath -Filter "*.lnk" -Force -ErrorAction SilentlyContinue).Count
+            $allLinks = @(Get-ChildItem -Path $recentPath -Filter "*.lnk" -Force -ErrorAction SilentlyContinue)
+            $realLinks = @($allLinks | Where-Object { $_.Name -notmatch "_decoy" })
+            if ($realLinks.Count -eq 0 -and $allLinks.Count -gt 0) {
+                $recentStatus = "CLEAN"
+                $recentDetail = "$($allLinks.Count) links (chameleon decoys)"
+            } elseif ($realLinks.Count -eq 0) {
+                $recentStatus = "CLEAN"
+                $recentDetail = "0 links"
+            } else {
+                $recentStatus = "EXPOSED"
+                $recentDetail = "$($realLinks.Count) links"
+            }
         }
         $results += [PSCustomObject]@{
             Artifact = "Recent Docs (.lnk)"
             Location = $recentPath
-            Count    = "$recentCount links"
-            Status   = if ($recentCount -eq 0) { "CLEAN" } else { "EXPOSED" }
+            Count    = $recentDetail
+            Status   = $recentStatus
         }
 
         $dumpCount = 0
