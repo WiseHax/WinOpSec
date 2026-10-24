@@ -542,28 +542,62 @@ function Clear-WindowsEventLogs {
 }
 
 function Invoke-PanicProtocol {
-    Write-Host "  [!] EXECUTING EMERGENCY PANIC PROTOCOL..." -ForegroundColor Red
-    Shred-PowerShellHistory
-    Clear-ExplorerTraces
+    param([switch]$PowerOff)
+    Write-Host "`n  ================================================================" -ForegroundColor Red
+    Write-Host "  [!] EXECUTING EMERGENCY DURESS / PANIC OBLITERATION PROTOCOL..." -ForegroundColor Red
+    Write-Host "  ================================================================" -ForegroundColor Red
 
     if (Test-IsWindowsOS) {
-        # Terminate running browsers
-        foreach ($b in @("mullvadbrowser", "chrome", "brave", "msedge", "firefox")) {
-            taskkill.exe /F /IM "$b.exe" 2>$null | Out-Null
+        # 1. Terminate all browser, communication, and sensitive developer processes
+        $killList = @(
+            "mullvadbrowser", "chrome", "brave", "msedge", "firefox", "tor", "opera", "vivaldi",
+            "telegram", "signal", "discord", "element", "keepass", "keepassxc", "bitwarden", "1password",
+            "code", "idea64", "git", "openvpn", "wireguard"
+        )
+        foreach ($proc in $killList) {
+            taskkill.exe /F /IM "$proc.exe" 2>$null | Out-Null
         }
+        Write-Host "  ok  terminated all browsers, messengers, and password vaults" -ForegroundColor Green
 
-        # Clear Event Logs if Admin
+        # 2. Instant Network Severance
+        try {
+            mullvad set-lockdown-mode on 2>$null | Out-Null
+            mullvad disconnect 2>$null | Out-Null
+            netsh wlan disconnect 2>$null | Out-Null
+        } catch {}
+        route -f 2>$null | Out-Null
+        ipconfig /flushdns 2>$null | Out-Null
+        arp -d * 2>$null | Out-Null
+        Write-Host "  ok  severed Wi-Fi, engaged Mullvad lockdown, and flushed ARP/DNS/routes" -ForegroundColor Green
+
+        # 3. Obliterate runtime artifacts & execution logs
+        Shred-PowerShellHistory
+        Clear-ExplorerTraces
+        Invoke-ShellBagsSanitize
+        Invoke-PcaWipe
+
+        # 4. Deep low-level filesystem sanitization
+        try {
+            vssadmin delete shadows /all /quiet 2>$null | Out-Null
+            fsutil usn deletejournal /D C: 2>$null | Out-Null
+        } catch {}
+
+        # 5. Flush clipboard and event logs
+        try { Set-Clipboard -Value $null -ErrorAction SilentlyContinue } catch {}
         if (Test-AdminPrivilege) {
             Clear-WindowsEventLogs
         }
 
-        # Flush network tables & routes
-        route -f 2>$null | Out-Null
-        ipconfig /flushdns 2>$null | Out-Null
-        arp -d * 2>$null | Out-Null
+        Write-Host "  ok  forensic execution traces obliterated & memory sanitized." -ForegroundColor Green
 
-        rundll32.exe user32.dll,LockWorkStation 2>$null
-        Write-Host "  ok  browsers killed, routes flushed, event logs wiped & workstation locked." -ForegroundColor Green
+        # 6. Immediate Lock or Emergency PowerOff
+        if ($PowerOff) {
+            Write-Host "  [!] INITIATING HARD EMERGENCY POWEROFF..." -ForegroundColor Red
+            shutdown.exe /s /f /t 0
+        } else {
+            rundll32.exe user32.dll,LockWorkStation 2>$null
+            Write-Host "  ok  workstation locked securely." -ForegroundColor Green
+        }
     } elseif ($IsMacOS) {
         pmset displaysleepnow 2>$null
     } else {
