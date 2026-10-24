@@ -1,0 +1,64 @@
+# winopsec v3.2
+
+Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, memory protection, and anti-forensics utility.
+
+## Supported Operating Systems
+
+Runs on **any OS** with PowerShell (`pwsh` 7+ or Windows PowerShell 5.1+):
+- **Windows** (Windows 7, 8, 10, 11 24H2+, Windows Server — all editions & architectures)
+- **Linux** (Debian, Ubuntu, Arch, Fedora, RHEL, Kali, Alpine, etc.)
+- **macOS** (Intel & Apple Silicon)
+- **BSD / Unix** (FreeBSD, OpenBSD, NetBSD)
+
+## Usage
+
+### Interactive REPL
+```sh
+# Windows
+.\run.bat
+# or any OS
+pwsh ./WinOpSec.ps1
+```
+
+Commands inside `opsec>` prompt (accepts number or command name):
+- `1` / `audit` — full posture check (telemetry, LSASS/NTLM shield, sensors, network leaks, Mullvad/VPN tunnel, browser OpSec, traces, FDE)
+- `2` / `telemetry` — disable OS telemetry, crash reporting, WDigest cleartext, anonymous SAM + enforce LSASS `RunAsPPL` & NTLMv2-only
+- `3` / `anon` — VPN-compatible geolocation kill (kills `lfsvc` & cloud location provider while muting Windows 11 24H2 WLAN popups for Mullvad & Proton VPN), blocks Recall/Copilot AI, locks Webcam/Mic, and enables Wi-Fi MAC randomization
+- `4` / `net` — disable LLMNR, mDNS (UDP 5353), NetBIOS, Teredo, WPAD, ICMP redirects + enforce SMB signing & outbound telemetry firewall blocks
+- `5` / `harden-all` — apply all host, network, Mullvad & browser hardening modules with automatic JSON state snapshot
+- `6` / `wipe` — zero-overwrite shell histories, UserAssist ROT13 execution logs, ComDlg32/RunMRU, JumpLists, NTFS `Zone.Identifier` streams, WER crash dumps, browser caches, clipboard, and DNS/NetBIOS caches
+- `7` / `secrets` — scan user directories for private keys, `.env`, `.git-credentials`, `.kube`, and API tokens
+- `8` / `recon` — live VPN tunnel & DNS leak verification, exposed listening ports (`0.0.0.0`/`::`), and active external TCP sockets
+- `9` / `mac` — on-demand hardware MAC address spoofer for active physical network interfaces (`mac reset` to restore factory MAC)
+- `mullvad` — query Mullvad CLI state & cryptographic exit API (`am.i.mullvad.net/json`)
+  - `mullvad harden` — state-level lockdown: enforce WFP killswitch (`lockdown-mode on`), Kyber-1024 Quantum-Resistant tunnel, Maybenot DAITA (Anti-AI traffic shaping), WireGuard multihop (dual-country bounce), LAN isolation & IPv6 leak lock
+  - `mullvad rotate` — instantly generate & rotate WireGuard public/private keys
+  - `mullvad daita [on|off]` — toggle AI traffic analysis defense padding
+  - `mullvad multihop [on|off]` — toggle multi-hop relay routing
+- `browser list` — auto-detect all installed browsers (Mullvad Browser, Brave, Chrome, Edge, Firefox), active profiles & accounts
+- `browser clean [-total]` — zero-overwrite browsing history, download logs, visited links, top sites, favicons & session caches (use `-total` to sever Google Cloud Sync, wipe autofill & reset sync tokens)
+- `browser remove <acct/#>` — selectively shred all logins, cookies, tokens, and storage for a specific account/profile
+- `browser` / `browser launch` — enforce browser anti-WebRTC leak & anti-infostealer policies or launch Mullvad Browser in isolated ephemeral mode
+- `forensic-check` — inspect VSS snapshots, USN deletion journal, timeline & slack space
+- `wipe-deleted` — purge VSS shadows, reset USN deletion logs & re-trim SSD (`wipe-deleted -cipher` for DoD 3-pass zeroing)
+- `wipe-logs` — purge all 400+ Windows event log channels (Security, System, App, ScriptBlock, WLAN)
+- `scrub <path>` — strip image EXIF metadata, remove NTFS `Zone.Identifier` origin streams, and normalize file MACB timestamps
+- `panic` — emergency trace shred + ARP/DNS/NetBIOS flush + immediate workstation lock
+- `restore` — rollback system configuration from latest JSON snapshot in `backups/`
+
+### Direct CLI Flags
+```sh
+pwsh ./WinOpSec.ps1 -Audit
+pwsh ./WinOpSec.ps1 -Recon
+pwsh ./WinOpSec.ps1 -Mullvad
+pwsh ./WinOpSec.ps1 -Browser
+pwsh ./WinOpSec.ps1 -LaunchBrowser
+pwsh ./WinOpSec.ps1 -HardenAll
+pwsh ./WinOpSec.ps1 -WipeTraces
+pwsh ./WinOpSec.ps1 -Scrub ./path/to/files
+pwsh ./WinOpSec.ps1 -SpoofMac
+pwsh ./WinOpSec.ps1 -ScanSecrets
+pwsh ./WinOpSec.ps1 -Panic
+pwsh ./WinOpSec.ps1 -Restore
+pwsh ./WinOpSec.ps1 -Help
+```
