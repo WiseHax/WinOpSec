@@ -222,4 +222,45 @@ function Test-PortScanActivity {
     return $alerts
 }
 
-Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity
+function Test-ActiveEavesdropping {
+    $alerts = @()
+    if (-not (Test-IsWindowsOS)) { return $alerts }
+
+    $consentRoots = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore"
+    )
+
+    foreach ($sensor in @("microphone", "webcam")) {
+        foreach ($root in $consentRoots) {
+            $sensorPath = Join-Path $root $sensor
+            if (-not (Test-Path $sensorPath -ErrorAction SilentlyContinue)) { continue }
+
+            try {
+                $subkeys = Get-ChildItem -Path $sensorPath -Recurse -ErrorAction SilentlyContinue
+                foreach ($sub in $subkeys) {
+                    $props = Get-ItemProperty -Path $sub.PSPath -ErrorAction SilentlyContinue
+                    if ($props -and $props.LastUsedTimeStart -ne $null) {
+                        $tStart = [int64]$props.LastUsedTimeStart
+                        $tStop  = if ($props.LastUsedTimeStop -ne $null) { [int64]$props.LastUsedTimeStop } else { 0 }
+
+                        if ($tStart -gt 0 -and ($tStop -eq 0 -or $tStart -gt $tStop)) {
+                            $appName = $sub.PSChildName
+                            if ($appName -match '#([^#]+)$') { $appName = $Matches[1] }
+                            $alerts += [PSCustomObject]@{
+                                Severity = "CRITICAL"
+                                Type     = "EAVESDROPPING_SENSOR_ACTIVE"
+                                Target   = "$sensor ($appName)"
+                                Detail   = "Sensor '$sensor' is ACTIVELY RECORDING by application: $appName"
+                            }
+                        }
+                    }
+                }
+            } catch {}
+        }
+    }
+
+    return $alerts
+}
+
+Export-ModuleMember -Function Test-ArpPoisoning, Get-DefaultGatewayInfo, Test-PortScanActivity, Test-ActiveEavesdropping
