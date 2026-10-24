@@ -1,6 +1,6 @@
-# winopsec v3.2
+# winopsec v3.5
 
-Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, memory protection, and anti-forensics utility.
+Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, kernel memory protection, and state-level anti-forensics utility.
 
 ## Supported Operating Systems
 
@@ -17,15 +17,15 @@ Runs on **any OS** with PowerShell (`pwsh` 7+ or Windows PowerShell 5.1+):
 # Windows
 .\run.bat
 # or any OS
-pwsh ./WinOpSec.ps1
+powershell ./WinOpSec.ps1
 ```
 
 Commands inside `opsec>` prompt (accepts number or command name):
-- `1` / `audit` — full posture check (telemetry, LSASS/NTLM shield, sensors, network leaks, Mullvad/VPN tunnel, browser OpSec, traces, FDE)
-- `2` / `telemetry` — disable OS telemetry, crash reporting, WDigest cleartext, anonymous SAM + enforce LSASS `RunAsPPL` & NTLMv2-only
+- `1` / `audit` — full posture check (telemetry, LSASS/NTLM shield, kernel memory guard, sensors, network leaks, Mullvad/VPN tunnel, browser OpSec, PCA/ShellBags traces, FDE)
+- `2` / `telemetry` — disable OS telemetry, crash reporting, WDigest cleartext, anonymous SAM + enforce LSASS `RunAsPPL`, NTLMv2-only, `DisablePagingExecutive`, and destroy `hiberfil.sys`
 - `3` / `anon` — VPN-compatible geolocation kill (kills `lfsvc` & cloud location provider while muting Windows 11 24H2 WLAN popups for Mullvad & Proton VPN), blocks Recall/Copilot AI, locks Webcam/Mic, and enables Wi-Fi MAC randomization
 - `4` / `net` — disable LLMNR, mDNS (UDP 5353), NetBIOS, Teredo, WPAD, ICMP redirects + enforce SMB signing & outbound telemetry firewall blocks
-- `5` / `harden-all` — apply all host, network, Mullvad & browser hardening modules with automatic JSON state snapshot
+- `5` / `harden-all` — apply all host, kernel, network, Mullvad & browser hardening modules with automatic JSON state snapshot
 - `6` / `wipe` — zero-overwrite shell histories, UserAssist ROT13 execution logs, ComDlg32/RunMRU, JumpLists, NTFS `Zone.Identifier` streams, WER crash dumps, browser caches, clipboard, and DNS/NetBIOS caches
 - `7` / `secrets` — scan user directories for private keys, `.env`, `.git-credentials`, `.kube`, and API tokens
 - `8` / `recon` — live VPN tunnel & DNS leak verification, exposed listening ports (`0.0.0.0`/`::`), and active external TCP sockets
@@ -39,26 +39,34 @@ Commands inside `opsec>` prompt (accepts number or command name):
 - `browser clean [-total]` — zero-overwrite browsing history, download logs, visited links, top sites, favicons & session caches (use `-total` to sever Google Cloud Sync, wipe autofill & reset sync tokens)
 - `browser remove <acct/#>` — selectively shred all logins, cookies, tokens, and storage for a specific account/profile
 - `browser` / `browser launch` — enforce browser anti-WebRTC leak & anti-infostealer policies or launch Mullvad Browser in isolated ephemeral mode
-- `forensic-check` — inspect VSS snapshots, USN deletion journal, timeline & slack space
-- `wipe-deleted` — purge VSS shadows, reset USN deletion logs & re-trim SSD (`wipe-deleted -cipher` for DoD 3-pass zeroing)
+- `forensic-check` — inspect VSS snapshots, USN deletion journal, timeline, SRUM, and slack space
+- `wipe-pca` — purge Windows 11 Program Compatibility Assistant launch dictionaries (`PcaAppLaunchDic.txt`, `PcaGeneralDb*.txt`) and enforce zero-byte lockdown
+- `wipe-shellbags` — purge Explorer ShellBags (`BagMRU` & `Bags` folder navigation histories)
+- `wipe-srum` — neutralize SRUM ESE database (`SRUDB.dat`) and lock Diagnostic Policy Service (`DPS`)
+- `scrub-wifi` — wipe NetworkList saved Wi-Fi profiles and historical gateway BSSIDs (anti-WiGLE triangulation)
+- `wipe-deleted` — purge VSS shadows, reset USN deletion logs, zero SRUM/Search databases & re-trim SSD (`wipe-deleted -cipher` for DoD 3-pass zeroing)
 - `wipe-logs` — purge all 400+ Windows event log channels (Security, System, App, ScriptBlock, WLAN)
 - `scrub <path>` — strip image EXIF metadata, remove NTFS `Zone.Identifier` origin streams, and normalize file MACB timestamps
-- `panic` — emergency trace shred + ARP/DNS/NetBIOS flush + immediate workstation lock
+- `panic` — apex duress protocol: terminate sensitive processes, sever Wi-Fi, enforce Mullvad killswitch, flush routes/DNS/ARP, wipe traces & lock screen (`panic -poweroff` for emergency hard shutdown)
 - `restore` — rollback system configuration from latest JSON snapshot in `backups/`
 
 ### Direct CLI Flags
 ```sh
-pwsh ./WinOpSec.ps1 -Audit
-pwsh ./WinOpSec.ps1 -Recon
-pwsh ./WinOpSec.ps1 -Mullvad
-pwsh ./WinOpSec.ps1 -Browser
-pwsh ./WinOpSec.ps1 -LaunchBrowser
-pwsh ./WinOpSec.ps1 -HardenAll
-pwsh ./WinOpSec.ps1 -WipeTraces
-pwsh ./WinOpSec.ps1 -Scrub ./path/to/files
-pwsh ./WinOpSec.ps1 -SpoofMac
-pwsh ./WinOpSec.ps1 -ScanSecrets
-pwsh ./WinOpSec.ps1 -Panic
-pwsh ./WinOpSec.ps1 -Restore
-pwsh ./WinOpSec.ps1 -Help
+powershell ./WinOpSec.ps1 -Audit
+powershell ./WinOpSec.ps1 -Recon
+powershell ./WinOpSec.ps1 -Mullvad
+powershell ./WinOpSec.ps1 -Browser
+powershell ./WinOpSec.ps1 -LaunchBrowser
+powershell ./WinOpSec.ps1 -HardenAll
+powershell ./WinOpSec.ps1 -WipeTraces
+powershell ./WinOpSec.ps1 -PcaWipe
+powershell ./WinOpSec.ps1 -ShellBags
+powershell ./WinOpSec.ps1 -Srum
+powershell ./WinOpSec.ps1 -ScrubWifi
+powershell ./WinOpSec.ps1 -Scrub ./path/to/files
+powershell ./WinOpSec.ps1 -SpoofMac
+powershell ./WinOpSec.ps1 -ScanSecrets
+powershell ./WinOpSec.ps1 -Panic
+powershell ./WinOpSec.ps1 -Restore
+powershell ./WinOpSec.ps1 -Help
 ```
