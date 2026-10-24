@@ -524,13 +524,10 @@ function Invoke-SentryMonitor {
         return
     }
 
-    Write-Host "`n  ================================================================" -ForegroundColor Cyan
-    Write-Host "  [+] INITIALIZING WINOPSEC PUBLIC DEFENSIVE SENTRY & TRIPWIRE..." -ForegroundColor Cyan
-    Write-Host "  ================================================================" -ForegroundColor Cyan
-    Write-Host "  threat model : Public Wi-Fi / Hostile LAN (MITM, SYN Scan, Rogue AP, Mic Tap, BadUSB)" -ForegroundColor DarkGray
-    Write-Host "  interval     : Every $IntervalSec seconds" -ForegroundColor DarkGray
-    Write-Host "  autopanic    : $(if ($AutoPanic) { 'ENABLED (Instant Net Sever & Screen Lock)' } else { 'DISABLED (Alert Only)' })" -ForegroundColor $(if ($AutoPanic) { 'Red' } else { 'DarkGray' })
-    Write-Host ""
+    Write-Host "`n  -- public sentry guard -----------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  monitoring public Wi-Fi & LAN perimeter for hostile activity." -ForegroundColor Gray
+    Write-Host "  interval  : every $IntervalSec seconds  |  autopanic: $(if ($AutoPanic) { 'armed (auto-sever)' } else { 'alert only' })" -ForegroundColor $(if ($AutoPanic) { 'Red' } else { 'DarkGray' })
+    Write-Host "  press Ctrl+C to stop monitoring.`n" -ForegroundColor DarkGray
 
     Write-Host "  [*] Baselining Default Gateway..." -ForegroundColor DarkGray
     $gw = Get-DefaultGatewayInfo
@@ -607,7 +604,7 @@ function Invoke-SentryMonitor {
         if ([Console]::KeyAvailable) {
             $key = [Console]::ReadKey($true)
             if ($key.KeyChar -eq 'q' -or $key.Key -eq [ConsoleKey]::Escape) {
-                Write-Host "`n`n  [+] Sentry disarmed by operator." -ForegroundColor Cyan
+                Write-Host "`n`n  [+] Sentry disarmed by operator." -ForegroundColor Gray
                 break
             }
         }

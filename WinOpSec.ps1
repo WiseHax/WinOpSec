@@ -29,6 +29,7 @@ param (
     [switch]$Panic,
     [switch]$Restore,
     [switch]$Intro,
+    [switch]$TestVoice,
     [switch]$Help
 )
 
@@ -259,6 +260,7 @@ function Show-Menu {
     Write-Host "`n  [!] shortcuts & navigation" -ForegroundColor White
     Write-Host "      quick           - 1-click scenario wizard (cafe, lockdown, clean)" -ForegroundColor Green
     Write-Host "      intro           - play animated audio briefing & walkthrough" -ForegroundColor Gray
+    Write-Host "      test-voice      - test laptop speaker voice output" -ForegroundColor DarkGray
     Write-Host "      guide <cmd>     - explain how any feature works" -ForegroundColor DarkGray
     Write-Host "      panic           - emergency route severance, trace wipe & screen lock" -ForegroundColor Red
     Write-Host "      panic -poweroff - emergency hard shutdown with zero disk traces" -ForegroundColor DarkRed
@@ -454,6 +456,7 @@ if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
 if ($Panic)         { Write-Header; Invoke-PanicProtocol; exit }
 if ($Restore)       { Write-Header; Restore-OpSecState | Out-Null; exit }
+if ($TestVoice)     { Test-VoiceOutput; exit }
 if ($Intro)         { Invoke-CyberIntro; exit }
 
 Clear-Host
@@ -686,11 +689,15 @@ while ($true) {
             Restore-OpSecState | Out-Null
             Write-Host ""
         }
-        "^(intro|tour|hello|onboarding)$" {
-            Invoke-CyberIntro
+        "^(intro|tour|hello|onboarding)(\s+(-mute|-quiet))?$" {
+            $mute = ($Matches[2] -ne $null)
+            Invoke-CyberIntro -VoiceMute:$mute
             Clear-Host
             Write-Header
             Show-Menu
+        }
+        "^(test-voice|testvoice|voice-test)$" {
+            Test-VoiceOutput
         }
         "^(quick|wizard|mode|modes)$" {
             Invoke-GuidedWizard
