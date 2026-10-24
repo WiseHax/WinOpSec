@@ -107,6 +107,23 @@ function Audit-Traces {
             Count    = "$pcaCount entries"
             Status   = if ($pcaCount -eq 0) { "CLEAN" } else { "EXPOSED" }
         }
+
+        # Explorer ShellBags (Folder Navigation Archaeology)
+        $sbCount = 0
+        foreach ($sbKey in @(
+            "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
+            "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags"
+        )) {
+            if (Test-Path $sbKey) {
+                $sbCount += @(Get-ChildItem -Path $sbKey -Recurse -ErrorAction SilentlyContinue).Count
+            }
+        }
+        $results += [PSCustomObject]@{
+            Artifact = "Explorer ShellBags"
+            Location = "HKCU:\...\Shell\BagMRU"
+            Count    = "$sbCount records"
+            Status   = if ($sbCount -eq 0) { "CLEAN" } else { "EXPOSED" }
+        }
     } else {
         $uHome = Get-UserHome
         foreach ($shFile in @(".bash_history", ".zsh_history", ".python_history", ".lesshst")) {
@@ -266,6 +283,9 @@ function Clear-ExplorerTraces {
         # Purge Windows 11 Program Compatibility Assistant (PCA) plaintext execution logs
         Invoke-PcaWipe
 
+        # Purge Explorer ShellBags (BagMRU & Bags folder navigation histories)
+        Invoke-ShellBagsSanitize
+
         # Clear Kernel ShimCache (AppCompatCache) & BAM (Background Activity Moderator)
         try {
             $shimKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
@@ -376,6 +396,25 @@ function Invoke-PcaWipe {
     } catch {
         Write-Host "  !!  pca purge failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
+}
+
+function Invoke-ShellBagsSanitize {
+    if (-not (Test-IsWindowsOS)) { return }
+    $shellBagPaths = @(
+        "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
+        "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags",
+        "HKCU:\Software\Microsoft\Windows\Shell\BagMRU",
+        "HKCU:\Software\Microsoft\Windows\Shell\Bags"
+    )
+    foreach ($sb in $shellBagPaths) {
+        if (Test-Path $sb) {
+            try {
+                Remove-Item -Path $sb -Recurse -Force -ErrorAction SilentlyContinue
+                New-Item -Path $sb -Force -ErrorAction SilentlyContinue | Out-Null
+            } catch {}
+        }
+    }
+    Write-Host "  ok  purged Explorer ShellBags (BagMRU & Bags folder navigation histories)" -ForegroundColor Green
 }
 
 function Invoke-MetadataScrub {
@@ -607,5 +646,5 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize
 
