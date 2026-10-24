@@ -3,6 +3,8 @@
 param (
     [switch]$Audit,
     [switch]$Recon,
+    [switch]$Sentry,
+    [switch]$AutoPanic,
     [switch]$Mullvad,
     [switch]$Browser,
     [switch]$LaunchBrowser,
@@ -31,7 +33,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -56,7 +58,7 @@ function Write-Header {
 
     Write-Host ""
     Write-Host "  winopsec " -ForegroundColor White -NoNewline
-    Write-Host "v3.8  //  cross-platform opsec, mullvad partner & browser shield" -ForegroundColor DarkGray
+    Write-Host "v4.0  //  cross-platform opsec, defensive sentry & forensic camouflage" -ForegroundColor DarkGray
     Write-Host "  os   : " -ForegroundColor DarkGray -NoNewline
     Write-Host "$HostOS [$Arch]" -ForegroundColor Gray
     Write-Host "  priv : " -ForegroundColor DarkGray -NoNewline
@@ -138,13 +140,20 @@ function Invoke-Audit {
         Write-StatusRow -State $(if ($r.Posture -eq "CIVILIAN_CAMOUFLAGE") { "HARDENED" } else { "CONFIGURABLE" }) -Label $r.Profile -Detail "$($r.Posture) ($($r.Decoys))"
     }
 
+    Write-Host "`n  -- public sentry & defensive tripwire posture" -ForegroundColor Cyan
+    $sentryResults = Audit-SentryPosture
+    foreach ($r in $sentryResults) {
+        Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
+    }
+
     Write-Host "`n  -- disk encryption" -ForegroundColor Cyan
     $diskResult = Audit-DiskEncryption
     Write-StatusRow -State $diskResult.Status -Label $diskResult.Target -Detail $diskResult.Details
 
     $scoredEgress = @($egressResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredBrowser = @($browserResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
-    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status)
+    $scoredSentry = @($sentryResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
+    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status) + $scoredSentry
     $passed = ($allChecks | Where-Object { $_ -eq "HARDENED" -or $_ -eq "CLEAN" }).Count
     $total  = $allChecks.Count
     $score  = if ($total -gt 0) { [math]::Round(($passed / $total) * 100, 1) } else { 100 }
@@ -196,6 +205,8 @@ function Show-Usage {
     Write-Host "  flags:" -ForegroundColor DarkGray
     Write-Host "    -Audit            run full posture, Mullvad/VPN, browser & trace audit"
     Write-Host "    -Recon            inspect active VPN tunnels, listening ports & external connections"
+    Write-Host "    -Sentry           launch real-time public sentry & defensive intrusion tripwire"
+    Write-Host "    -AutoPanic        arm automated network severance & screen lock on intrusion"
     Write-Host "    -Mullvad          verify Mullvad VPN partner state, killswitch, PQ tunnel & exit IP"
     Write-Host "    -Browser          harden Chrome/Brave/Edge/Firefox (block WebRTC leak, vault & enforce Mullvad DoH)"
     Write-Host "    -LaunchBrowser    launch preferred browser in isolated ephemeral OpSec mode"
@@ -233,6 +244,8 @@ function Show-Menu {
     Write-Host "    wipe-tokens       neutralize Telegram, Discord, Signal & Slack desktop auth sessions"
     Write-Host "    wipe-screenshots  shred Windows Snipping Tool temp state & Acropalypse image caches"
     Write-Host "    wipe-reglogs      flush active registry transaction journals (.LOG1, .LOG2) to disk"
+    Write-Host "    sentry            real-time public sentry (ARP poison, port scan, mic/cam tap, BadUSB)"
+    Write-Host "    sentry -autopanic arm sentry with automated Wi-Fi kill & workstation lock on threat"
     Write-Host "    chameleon         seed synthetic civilian activity (defeats SANS 'Too Clean Machine')"
     Write-Host "    chameleon -purge  purge synthetic camouflage documents and revert to zero-state"
     Write-Host "    deadman           arm USB Dead Man's Switch (instant panic on physical USB pull)"
@@ -249,6 +262,7 @@ function Show-Menu {
 if ($Help)          { Show-Usage; exit }
 if ($Audit)         { Write-Header; Invoke-Audit; exit }
 if ($Recon)         { Write-Header; Invoke-NetworkRecon; exit }
+if ($Sentry)        { Write-Header; Invoke-SentryMonitor -AutoPanic:$AutoPanic; exit }
 if ($Mullvad)       { Write-Header; Invoke-MullvadPartner -Action "status"; exit }
 if ($Browser)       { Write-Header; Harden-Browsers; exit }
 if ($LaunchBrowser) { Write-Header; Start-HardenedBrowser; exit }
@@ -454,6 +468,16 @@ while ($true) {
         "^(wipe-reglogs|reglogs|flush-registry)$" {
             Write-Host ""
             Invoke-RegistryLogSanitize
+            Write-Host ""
+        }
+        "^sentry(\s+(-autopanic|autopanic))?$" {
+            Write-Host ""
+            Invoke-SentryMonitor -AutoPanic:($Matches[2] -ne $null)
+            Write-Host ""
+        }
+        "^sentry\s+(status|posture|audit)$" {
+            Write-Host ""
+            Audit-SentryPosture | Format-Table -AutoSize
             Write-Host ""
         }
         "^chameleon(\s+(-purge|purge))?$" {
