@@ -1,0 +1,152 @@
+# CanaryTrap.psm1 - High-Value Honeytoken Breach Tripwire
+# WinOpSec Defensive Suite
+
+function Get-CanaryBaitPaths {
+    $uHome = if ($HOME) { $HOME } elseif ($env:USERPROFILE) { $env:USERPROFILE } else { [Environment]::GetFolderPath("UserProfile") }
+    
+    return @(
+        @{
+            Path        = Join-Path $uHome "Desktop\aws_vault_backup.env"
+            Description = "Cloud Credentials Honeytoken"
+            Content     = "# AWS PRODUCTION CREDENTIALS BACKUP`nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE`nAWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`nAWS_DEFAULT_REGION=us-east-1`n"
+        },
+        @{
+            Path        = Join-Path $uHome "Documents\wallet_recovery_phrase.txt"
+            Description = "Cryptographic Seed Honeytoken"
+            Content     = "RECOVERY SEED PHRASE - KEEP OFFLINE`n1. abandon  2. ability  3. able  4. about`n5. above    6. absent   7. absorb 8. abstract`n9. absurd   10. abuse   11. access 12. accident`n"
+        },
+        @{
+            Path        = Join-Path $uHome "Downloads\finance_passwords.kdbx"
+            Description = "Encrypted Vault Honeytoken"
+            # Standard KeePass KDBX4 magic bytes: 0x03 0xD9 0xA2 0x9A, 0x67 0xFB 0x4B 0xB5
+            Bytes       = [byte[]]@(0x03, 0xD9, 0xA2, 0x9A, 0x67, 0xFB, 0x4B, 0xB5, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00)
+        }
+    )
+}
+
+function Deploy-CanaryTraps {
+    [CmdletBinding()]
+    param([switch]$Silent)
+
+    $baits = Get-CanaryBaitPaths
+    $deployed = 0
+
+    if (-not $Silent) {
+        Write-Host "`n  -- deploying canary honeytoken breach traps -------------------" -ForegroundColor DarkGray
+        Write-Host "  planting realistic decoy secrets in Desktop, Documents, Downloads..." -ForegroundColor Gray
+    }
+
+    foreach ($b in $baits) {
+        try {
+            $dir = Split-Path $b.Path -Parent
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+            if ($b.Bytes) {
+                [System.IO.File]::WriteAllBytes($b.Path, $b.Bytes)
+            } else {
+                Set-Content -LiteralPath $b.Path -Value $b.Content -Force -Encoding UTF8
+            }
+
+            # Set realistic natural timestamp (14 days ago)
+            $item = Get-Item -LiteralPath $b.Path -Force
+            $item.CreationTime   = (Get-Date).AddDays(-14).AddHours(-3)
+            $item.LastWriteTime  = (Get-Date).AddDays(-14).AddHours(-2)
+            $item.LastAccessTime = (Get-Date).AddDays(-14).AddHours(-1)
+
+            $deployed++
+            if (-not $Silent) {
+                Write-Host "  [+] armed : $($b.Path)" -ForegroundColor DarkGray
+            }
+        } catch {
+            if (-not $Silent) {
+                Write-Host "  [!] failed to plant $($b.Path): $_" -ForegroundColor DarkGray
+            }
+        }
+    }
+
+    if (-not $Silent) {
+        Write-Host "  ok  $deployed honeytoken breach traps active. Sentry will monitor accesses.`n" -ForegroundColor Green
+    }
+    return $deployed
+}
+
+function Audit-CanaryTraps {
+    $baits = Get-CanaryBaitPaths
+    $results = @()
+
+    foreach ($b in $baits) {
+        $p = $b.Path
+        $exists = $false
+        try {
+            $exists = Test-Path -LiteralPath $p -ErrorAction Stop
+        } catch {
+            $exists = $false
+        }
+        
+        $state = "MISSING"
+        $detail = "Trap not deployed"
+
+        if ($exists) {
+            try {
+                $item = Get-Item -LiteralPath $p -Force -ErrorAction Stop
+                # Check if accessed in the last 60 minutes
+                $accessedRecently = ($item.LastAccessTime -gt (Get-Date).AddMinutes(-60)) -and ($item.LastAccessTime -gt $item.LastWriteTime.AddMinutes(5))
+                if ($accessedRecently) {
+                    $state = "TRIPPED"
+                    $detail = "UNAUTHORIZED ACCESS: Accessed at $($item.LastAccessTime.ToString('HH:mm:ss'))"
+                } else {
+                    $state = "ARMED"
+                    $detail = "Active & untouched ($($item.Length) bytes)"
+                }
+            } catch {
+                $state = "LOCKED"
+                $detail = "File exists (access restricted)"
+            }
+        }
+
+        $results += [PSCustomObject]@{
+            Trap        = (Split-Path $b.Path -Leaf)
+            Description = $b.Description
+            State       = $state
+            Details     = $detail
+            Path        = $b.Path
+        }
+    }
+
+    return $results
+}
+
+function Test-CanaryTrip {
+    $traps = Audit-CanaryTraps
+    $tripped = @($traps | Where-Object { $_.State -eq "TRIPPED" })
+    return $tripped
+}
+
+function Purge-CanaryTraps {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "`n  -- purging canary honeytoken traps ----------------------------" -ForegroundColor DarkGray
+    $baits = Get-CanaryBaitPaths
+    $purged = 0
+
+    foreach ($b in $baits) {
+        if (Test-Path -LiteralPath $b.Path) {
+            try {
+                # Zero overwrite before delete
+                $len = (Get-Item -LiteralPath $b.Path -Force).Length
+                if ($len -gt 0) {
+                    $zeroes = New-Object byte[] $len
+                    [System.IO.File]::WriteAllBytes($b.Path, $zeroes)
+                }
+                Remove-Item -LiteralPath $b.Path -Force -ErrorAction SilentlyContinue
+                Write-Host "  ok  purged: $($b.Path)" -ForegroundColor Gray
+                $purged++
+            } catch {}
+        }
+    }
+
+    Write-Host "  ok  $purged canary traps removed.`n" -ForegroundColor Green
+}
+
+Export-ModuleMember -Function Get-CanaryBaitPaths, Deploy-CanaryTraps, Audit-CanaryTraps, Test-CanaryTrip, Purge-CanaryTraps

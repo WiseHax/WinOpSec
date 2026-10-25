@@ -898,6 +898,8 @@ function Invoke-DeepSanitize {
         } else {
             Write-Host "  [TIP] To zero-overwrite ALL free space on drive C: to defeat raw sector carving, run 'wipe-deleted -cipher'." -ForegroundColor DarkGray
         }
+        # 8. Purge Volatile RAM working sets & memory cache
+        Invoke-RamSanitize
     } else {
         fstrim -av 2>$null
         journalctl --vacuum-time=1s 2>$null
@@ -905,5 +907,97 @@ function Invoke-DeepSanitize {
     }
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize
+function Invoke-RamSanitize {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "`n  -- volatile ram cache purge (anti-coldboot) -------------------" -ForegroundColor DarkGray
+    Write-Host "  flushing process working sets and trimming memory pages..." -ForegroundColor Gray
+
+    $pInvokeMem = @"
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+public class WinOpSecMemoryPurge {
+    [DllImport("psapi.dll")]
+    public static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+    public static int FlushProcesses() {
+        int trimmed = 0;
+        Process[] procs = Process.GetProcesses();
+        foreach (Process p in procs) {
+            try {
+                if (!p.HasExited) {
+                    if (EmptyWorkingSet(p.Handle)) {
+                        trimmed++;
+                    }
+                }
+            } catch {}
+        }
+        return trimmed;
+    }
+}
+"@
+
+    try {
+        if (-not ([System.Management.Automation.PSTypeName]'WinOpSecMemoryPurge').Type) {
+            Add-Type -TypeDefinition $pInvokeMem -ErrorAction SilentlyContinue
+        }
+        $count = [WinOpSecMemoryPurge]::FlushProcesses()
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+        Write-Host "  ok  trimmed working set pages on $count accessible processes." -ForegroundColor Green
+        Write-Host "  ok  garbage collection and volatile heap flushed." -ForegroundColor Green
+    } catch {
+        Write-Host "  [!] memory purge error: $_" -ForegroundColor DarkGray
+    }
+}
+
+function Invoke-TimestampJitter {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPath,
+        [int]$DaysMin = 7,
+        [int]$DaysMax = 35
+    )
+
+    if (-not (Test-Path $TargetPath)) {
+        Write-Host "  [!] path not found: $TargetPath" -ForegroundColor DarkGray
+        return
+    }
+
+    $items = @(Get-Item -LiteralPath $TargetPath)
+    if (Test-Path -Path $TargetPath -PathType Container) {
+        $items += @(Get-ChildItem -LiteralPath $TargetPath -Recurse -Force -ErrorAction SilentlyContinue)
+    }
+
+    $now = Get-Date
+    $count = 0
+
+    foreach ($item in $items) {
+        try {
+            $daysAgo = Get-Random -Minimum $DaysMin -Maximum $DaysMax
+            $hour = Get-Random -Minimum 8 -Maximum 21
+            $min = Get-Random -Minimum 0 -Maximum 59
+            $sec = Get-Random -Minimum 0 -Maximum 59
+
+            $created = $now.AddDays(-$daysAgo).Date.AddHours($hour).AddMinutes($min).AddSeconds($sec)
+            $writeDelta = Get-Random -Minimum 2 -Maximum 180
+            $modified = $created.AddMinutes($writeDelta)
+            $accessDelta = Get-Random -Minimum 1 -Maximum 45
+            $accessed = $modified.AddMinutes($accessDelta)
+
+            $item.CreationTime   = $created
+            $item.LastWriteTime  = $modified
+            $item.LastAccessTime = $accessed
+            $count++
+        } catch {}
+    }
+
+    Write-Host "  ok  applied natural gaussian jitter across $count file(s) (anti-timestomp)." -ForegroundColor Green
+}
+
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize, Invoke-RamSanitize, Invoke-TimestampJitter
 

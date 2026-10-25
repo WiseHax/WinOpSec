@@ -507,6 +507,19 @@ function Audit-SentryPosture {
         Details = "$($usbSet.Count) baseline USB devices registered"
     }
 
+    if (Get-Command Audit-CanaryTraps -ErrorAction SilentlyContinue) {
+        $canaryTraps = Audit-CanaryTraps
+        $trippedCount = @($canaryTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
+        $armedCount = @($canaryTraps | Where-Object { $_.State -eq "ARMED" }).Count
+        $status = if ($trippedCount -gt 0) { "FAIL" } elseif ($armedCount -gt 0) { "HARDENED" } else { "CONFIGURABLE" }
+        $detail = if ($trippedCount -gt 0) { "$trippedCount honeytoken breach trap(s) TRIPPED!" } elseif ($armedCount -gt 0) { "$armedCount honeytoken traps armed (untouched)" } else { "Traps not deployed (run 'canary drop')" }
+        $results += [PSCustomObject]@{
+            Status  = $status
+            Check   = "Canary Honeytoken Traps"
+            Details = $detail
+        }
+    }
+
     return $results
 }
 
@@ -575,6 +588,18 @@ function Invoke-SentryMonitor {
 
         $wifiThreats = Test-WifiPerimeter -CurrentBssidRef $bssidRef
         $allThreats += $wifiThreats
+
+        # Vector 8: Canary Honeytoken Breach Detection
+        if (Get-Command Test-CanaryTrip -ErrorAction SilentlyContinue) {
+            $trippedCanaries = Test-CanaryTrip
+            foreach ($tc in $trippedCanaries) {
+                $allThreats += [PSCustomObject]@{
+                    Type     = "Honeytoken Breach"
+                    Severity = "CRITICAL"
+                    Detail   = "Canary decoy accessed: $($tc.Trap) ($($tc.Path))"
+                }
+            }
+        }
 
         if ($allThreats.Count -gt 0) {
             Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) TRIGGERED!" -ForegroundColor Red
