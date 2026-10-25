@@ -323,14 +323,14 @@ function Invoke-CyberIntro {
 
     $introHandle = $null
     if (-not $VoiceMute) {
-        $introHandle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Listen up. Don't act like a clueless script kiddie running tools without understanding basic operational security. Pay attention to these rules so you don't get compromised."
+        $introHandle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Greetings. Welcome to WinOpSec. Don't act like a brain-dead script kiddie downloading tools you don't understand. If your OpSec is trash, you're not a hacker, you're just another clown waiting to get raided. Listen the fuck up to these six rules so you don't get compromised."
     }
 
-    Write-AnimatedLine -Text "  > hello." -CharDelayMs $delay -Color Gray
+    Write-AnimatedLine -Text "  > anonymous voice briefing initialized." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
     Write-AnimatedLine -Text "  > welcome to winopsec." -CharDelayMs $delay -Color Gray
     Start-Sleep -Milliseconds 120
-    Write-AnimatedLine -Text "  > don't be a script kiddie. opsec rules online." -CharDelayMs $delay -Color Green
+    Write-AnimatedLine -Text "  > stop acting like a brain-dead skid. rules online." -CharDelayMs $delay -Color Green
 
     if ($introHandle) {
         $null = Wait-AudioPlaybackFinish -PlayHandle $introHandle -MaxMs 30000 -AllowSkip
@@ -344,62 +344,62 @@ function Invoke-CyberIntro {
     $rules = @(
         @{
             Number  = "1"
-            Title   = "PUBLIC WI-FI: Stop acting like open networks are safe"
+            Title   = "PUBLIC WI-FI: What the fuck are you doing on open networks?"
             Clip    = "rule1_wifi.mp3"
-            Voice   = "Rule number one: Stop acting like public Wi-Fi is harmless. Connecting to coffee shop or airport Wi-Fi with a raw MAC address and no VPN is pure amateur hour. Any script kiddie with Bettercap can hijack your session cookies in three seconds. Spoof your MAC and lock your tunnel with Cafe Mode before you touch a browser."
-            Mistake = "Connecting raw to cafe or airport Wi-Fi without VPN and spoofed MAC."
-            Threat  = "Any skid with an ARP-poisoning tool can hijack your sessions in seconds."
-            Fix     = "Run Cafe Mode to lock Mullvad killswitch, spoof MAC, and arm Sentry."
+            Voice   = "Rule number one: Public Wi-Fi. Connecting raw to coffee shop or airport Wi-Fi with your real MAC address and no VPN? What the fuck are you doing? Any skid with an ARP poisoner will hijack your session cookies in three seconds flat. Spoof your damn MAC and lock your tunnel with Cafe Mode before you touch a browser."
+            Mistake = "Connecting raw to cafe or airport Wi-Fi with your real physical MAC."
+            Threat  = "Any skid with an ARP poisoner hijacks your session cookies in 3 seconds flat."
+            Fix     = "Spoof your MAC and lock Mullvad WFP killswitch before opening a browser."
             Command = "quick -> 1  or  sentry -autopanic"
         },
         @{
             Number  = "2"
-            Title   = "CREDENTIALS & MEMORY: Storing plaintext secrets on disk is idiotic"
+            Title   = "CREDENTIALS & MEMORY: Storing plaintext secrets is pure idiocy"
             Clip    = "rule2_creds.mp3"
-            Voice   = "Rule number two: Storing plaintext passwords, API tokens, or private keys on your desktop is idiotic. Leaving LSASS memory unprotected lets even the most basic infostealer dump your credentials in half a second. Apply host lockdown to isolate LSASS in kernel memory so malware gets zero passwords."
-            Mistake = "Leaving .env files, private keys, or API tokens on your desktop."
-            Threat  = "Infostealers dump LSASS memory and scrape plaintext keys in under 2 seconds."
+            Voice   = "Rule number two: Plaintext credentials. Storing API tokens, seed phrases, and passwords on your desktop is pure idiocy. Basic infostealers will rip through your unshielded LSASS memory in under a second. Run host lockdown, lock LSASS into kernel memory, and wipe your exposed secrets."
+            Mistake = "Leaving .env files, private keys, seeds, or API tokens on your desktop."
+            Threat  = "Lumma and RedLine infostealers rip through unshielded LSASS memory in 1 second."
             Fix     = "Lock LSASS into kernel PPL memory and scan disk for exposed secrets."
             Command = "2  or  harden-all"
         },
         @{
             Number  = "3"
-            Title   = "HARDWARE ATTACKS: Never plug in unknown flash drives like a rookie"
+            Title   = "HARDWARE TRAPS: Don't be the dumbass who plugs in random flash drives"
             Clip    = "rule3_usb.mp3"
-            Voice   = "Rule number three: Don't be that clown who plugs in random USB drives found on the street or lets strangers touch your ports. BadUSB devices act like a keyboard on steroids, typing reverse shells before you can even blink. Keep Sentry active, or arm DeadMan if you are in hostile physical territory."
-            Mistake = "Plugging in random USB sticks or leaving laptop ports unguarded."
-            Threat  = "BadUSB hardware injects 500 keystrokes per second to spawn instant reverse shells."
-            Fix     = "Arm Sentry to detect rogue USB devices, or use BusKill lanyard (DeadMan)."
+            Voice   = "Rule number three: Hardware traps. Don't be the dumbass who plugs in random flash drives found in the parking lot. A BadUSB injects five hundred keystrokes a second and pops a reverse shell before your slow ass can blink. Keep Sentry active, or arm DeadMan if you're in hostile territory."
+            Mistake = "Plugging in random found USB sticks or leaving laptop ports unguarded."
+            Threat  = "BadUSB injects 500 keystrokes/sec and pops a reverse shell before you can blink."
+            Fix     = "Arm Sentry to detect rogue HID injections, or use BusKill lanyard (DeadMan)."
             Command = "sentry  or  deadman"
         },
         @{
             Number  = "4"
-            Title   = "FORENSIC ARTIFACTS: Incognito mode will not save you, amateur"
+            Title   = "FORENSIC FOOTPRINTS: Incognito mode will not save your ass"
             Clip    = "rule4_pca.mp3"
-            Voice   = "Rule number four: Incognito mode will not save you, amateur. Closing your browser only clears cookies; Windows secretly logs every single program you launch in PCA files and records every folder you browse in ShellBags. Always wipe PCA and ShellBags when your session is done."
-            Mistake = "Assuming private browsing leaves zero footprints on your system."
-            Threat  = "Windows 11 secretly logs every .exe in PCA files and folders in ShellBags."
-            Fix     = "Shred PCA dictionaries, Explorer ShellBags, and registry transaction logs."
+            Voice   = "Rule number four: Forensic footprints. Incognito mode will not save your ass, amateur. You close Chrome and think you're clean? Bullshit. Windows 11 secretly logs every damn executable you ran in PCA launch dictionaries and records every folder in ShellBags. Wipe PCA and purge ShellBags, or hand the cops your timeline on a silver platter."
+            Mistake = "Assuming private browser tabs leave zero footprints on disk."
+            Threat  = "Windows 11 secretly logs every executable in PCA and folders in ShellBags."
+            Fix     = "Shred PCA dictionaries, Explorer ShellBags, and KTM registry logs."
             Command = "wipe-pca  and  wipe-shellbags  (or 6 / wipe)"
         },
         @{
             Number  = "5"
-            Title   = "FORENSIC DECEPTION: A totally clean machine is an amateur dead giveaway"
+            Title   = "FORENSIC DECEPTION: An empty machine screams guilty as hell"
             Clip    = "rule5_chameleon.mp3"
-            Voice   = "Rule number five: Don't be an idiot and wipe your machine completely clean. Digital forensics experts immediately flag a totally empty laptop as Evidence of Absence. A clean drive screams that you have something to hide. Deploy Chameleon to blend in with normal civilian activity."
-            Mistake = "Zeroing every file and log, leaving a suspicious blank slate."
-            Threat  = "Forensics examiners flag an empty laptop immediately as Evidence of Absence."
-            Fix     = "Deploy realistic civilian camouflage (student essays, recipes) with Chameleon."
+            Voice   = "Rule number five: Forensic deception. Wiping your entire machine to zero bytes? Congratulations, you just handed digital forensics Evidence of Absence. A squeaky-clean drive screams that you have something to hide. Deploy Chameleon. Plant civilian noise, essays, and recipes to look like a boring civilian."
+            Mistake = "Zeroing every log and file, leaving a suspicious blank slate."
+            Threat  = "Forensics investigators flag a clean machine immediately as Evidence of Absence."
+            Fix     = "Plant realistic civilian noise (student essays, recipes) with Chameleon."
             Command = "chameleon"
         },
         @{
             Number  = "6"
-            Title   = "AUTOMATION: Don't guess commands like a clueless script kiddie"
+            Title   = "AUTOMATION: Don't guess syntax like a panic-stricken skid"
             Clip    = "rule6_automation.mp3"
-            Voice   = "Rule number six: Don't guess commands like a clueless script kiddie when adrenaline is pumping. Just type quick. One click handles the defense automatically so you don't screw it up."
-            Mistake = "Trying to remember dozens of flags and botching the syntax under stress."
-            Threat  = "One typo or missing killswitch flag leaves your real identity exposed."
-            Fix     = "Type 'quick' for 1-click execution of automated defensive profiles."
+            Voice   = "Rule number six: Automation. Don't guess flags and botch syntax like a panic-stricken script kiddie when adrenaline is pumping. Just type quick. One click handles the defense automatically so you don't fuck it up."
+            Mistake = "Trying to remember dozens of CLI flags and botching commands under stress."
+            Threat  = "One typo or missing killswitch flag leaves your real IP and identity exposed."
+            Fix     = "Type 'quick' for 1-click automated execution of complete defensive modes."
             Command = "quick"
         }
     )
@@ -445,14 +445,14 @@ function Invoke-CyberIntro {
     }
 
     if (-not $VoiceMute -and -not $interruptedAll) {
-        $outroHandle = Play-OpSecAudioClip -ClipName "outro.mp3" -FallbackText "Briefing finished. Stop doing stupid shit on the net. Type quick to begin, or press enter for the main console."
+        $outroHandle = Play-OpSecAudioClip -ClipName "outro.mp3" -FallbackText "Briefing complete. Stop doing stupid shit on the wire. Type quick to begin, or hit enter for the main console. Stay paranoid."
         if ($outroHandle) {
             $null = Wait-AudioPlaybackFinish -PlayHandle $outroHandle -MaxMs 15000 -AllowSkip
         }
     }
 
     Write-Host "`n  ------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  stop doing stupid shit. type 'quick' or press enter for console... " -ForegroundColor DarkGray -NoNewline
+    Write-Host "  stop doing dumb shit. type 'quick' or press enter for console... " -ForegroundColor DarkGray -NoNewline
     
     try {
         if (-not [System.Console]::IsInputRedirected) {

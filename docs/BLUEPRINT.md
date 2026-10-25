@@ -154,3 +154,4 @@ sequenceDiagram
 * **Portable USB Deployment**: Clones the complete portable suite to a removable drive, configures a root launcher, and locks a dummy `autorun.inf` directory (`+s +h +r`) to immunize the drive against USB worms.
 * **Hardware Port Protection**: Flips `StorageDevicePolicies\WriteProtect` to enforce read-only status on all connected USB ports, preventing data exfiltration or malware staging.
 * **Ghost Self-Destruct (`vanish`)**: Multi-pass random overwrite of all files, detached folder obliteration, NTFS USN Journal wiping (`fsutil usn deletejournal /D`), and storage SSD TRIM optimization prior to immediate shutdown.
+
