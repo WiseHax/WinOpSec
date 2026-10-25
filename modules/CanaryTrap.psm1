@@ -103,6 +103,9 @@ function Deploy-CanaryTraps {
                 Set-Content -LiteralPath $b.Path -Value $b.Content -Force -Encoding UTF8
             }
 
+            # Set Not Content Indexed attribute so Windows Search Indexer does not crawl the decoy
+            attrib +i "$($b.Path)" 2>$null | Out-Null
+
             # Set realistic natural timestamp (14 days ago)
             $item = Get-Item -LiteralPath $b.Path -Force
             $item.CreationTime   = (Get-Date).AddDays(-14).AddHours(-3)
@@ -175,12 +178,12 @@ function Audit-CanaryTraps {
 
                 if ($manifest -and $manifest.PSObject.Properties[$p]) {
                     $entry = $manifest.PSObject.Properties[$p].Value
-                    $baseAccess = [DateTime]$entry.AccessTime
                     $baseWrite  = [DateTime]$entry.WriteTime
                     $baseLen    = [int64]$entry.Length
+                    $deployTime = if ($entry.DeployTime) { [DateTime]$entry.DeployTime } else { [DateTime]$entry.AccessTime }
 
-                    # Trigger breach if accessed after deployment baseline + 3s buffer, or if modified/resized
-                    if ($item.LastAccessTime -gt $baseAccess.AddSeconds(3)) {
+                    # A real breach occurs if the honeytoken was read after deployment (with 30s grace window) or modified/resized
+                    if ($item.LastAccessTime -gt $deployTime.AddSeconds(30)) {
                         $isTripped = $true
                         $detail = "UNAUTHORIZED READ: Opened at $($item.LastAccessTime.ToString('HH:mm:ss'))"
                     } elseif ($item.LastWriteTime -ne $baseWrite -or $item.Length -ne $baseLen) {

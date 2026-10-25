@@ -306,10 +306,25 @@ function Test-UsbPerimeter {
 }
 
 function Test-DnsHijack {
+    param(
+        [string]$BaselineGatewayIP,
+        [string[]]$BaselineDns
+    )
     $alerts = @()
     if (-not (Test-IsWindowsOS)) { return $alerts }
 
     try {
+        # Check if Mullvad VPN encrypted tunnel is active
+        $mullvadRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }
+        $mullvadAdapter = Get-NetAdapter -Name "*mullvad*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" }
+        $vpnActive = ($mullvadRoute -ne $null) -or ($mullvadAdapter -ne $null)
+
+        # When Mullvad is active, all DNS queries are encrypted through 10.64.0.1 and non-tunnel DNS is blocked by WFP.
+        # Local DHCP router addresses on the physical Wi-Fi interface are inactive and not rogue hijackers.
+        if ($vpnActive) {
+            return $alerts
+        }
+
         $dnsList = @()
         $dnsAddrs = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
         if ($dnsAddrs) {
@@ -327,14 +342,23 @@ function Test-DnsHijack {
             }
         }
 
+        $knownSafeDns = @("10.64.0.1", "1.1.1.1", "1.0.0.1", "9.9.9.9", "149.112.112.112", "8.8.8.8", "8.8.4.4")
+
         foreach ($dns in $dnsList) {
-            if ($dns -match "^192\.168\." -or ($dns -match "^10\." -and $dns -ne "10.64.0.1")) {
-                $alerts += [PSCustomObject]@{
-                    Severity = "HIGH"
-                    Type     = "ROGUE_DNS_RESOLVER"
-                    Target   = $dns
-                    Detail   = "Insecure local resolver ($dns) active. Unencrypted DNS vulnerable to MITM/poisoning."
-                }
+            # Expected local router gateway from DHCP
+            if ($BaselineGatewayIP -and ($dns -eq $BaselineGatewayIP)) { continue }
+
+            # Pre-existing baseline DNS from session start
+            if ($BaselineDns -and ($dns -in $BaselineDns)) { continue }
+
+            # Known trusted public DNS
+            if ($dns -in $knownSafeDns) { continue }
+
+            $alerts += [PSCustomObject]@{
+                Severity = "HIGH"
+                Type     = "ROGUE_DNS_RESOLVER"
+                Target   = $dns
+                Detail   = "Rogue or unexpected DNS resolver ($dns) active. Potential DNS hijacking/drift detected."
             }
         }
     } catch {}
@@ -559,9 +583,20 @@ function Invoke-SentryMonitor {
     Test-WifiPerimeter -CurrentBssidRef $bssidRef | Out-Null
     Write-Host "      Active BSSID: $(if ($bssidRef.Value) { $bssidRef.Value } else { 'Ethernet/VPN/Container' })" -ForegroundColor White
 
+    $baseDns = @()
+    try {
+        $dnsAddrs = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        if ($dnsAddrs) {
+            foreach ($d in $dnsAddrs) {
+                if ($d.ServerAddresses) { $baseDns += $d.ServerAddresses }
+            }
+        }
+    } catch {}
+
     Write-Host "`n  [+] SENTRY ACTIVE. Watching perimeter... (Press [Ctrl+C] or 'q' to stop)`n" -ForegroundColor Green
 
     $cycle = 0
+    $reportedThreatKeys = [System.Collections.Generic.HashSet[string]]::new()
 
     while ($true) {
         $cycle++
@@ -580,7 +615,7 @@ function Invoke-SentryMonitor {
         $usbThreats = Test-UsbPerimeter -BaselineUsbSet $baseUsb
         $allThreats += $usbThreats
 
-        $dnsThreats = Test-DnsHijack
+        $dnsThreats = Test-DnsHijack -BaselineGatewayIP $baseGwIp -BaselineDns $baseDns
         $allThreats += $dnsThreats
 
         $revThreats = Test-ReverseShellIntegrity
@@ -601,9 +636,29 @@ function Invoke-SentryMonitor {
             }
         }
 
-        if ($allThreats.Count -gt 0) {
-            Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) TRIGGERED!" -ForegroundColor Red
-            foreach ($t in $allThreats) {
+        # Deduplicate active threats to prevent multi-line flooding every cycle
+        $newThreats = @()
+        $currentKeys = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($t in $allThreats) {
+            $key = "$($t.Type)|$($t.Target)|$($t.Detail)"
+            $currentKeys.Add($key) | Out-Null
+            if (-not $reportedThreatKeys.Contains($key)) {
+                $newThreats += $t
+                $reportedThreatKeys.Add($key) | Out-Null
+            }
+        }
+
+        $toRemove = @()
+        foreach ($k in $reportedThreatKeys) {
+            if (-not $currentKeys.Contains($k)) { $toRemove += $k }
+        }
+        foreach ($k in $toRemove) {
+            $reportedThreatKeys.Remove($k) | Out-Null
+        }
+
+        if ($newThreats.Count -gt 0) {
+            Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) ACTIVE ($($newThreats.Count) new)!" -ForegroundColor Red
+            foreach ($t in $newThreats) {
                 $color = if ($t.Severity -eq "CRITICAL") { "Red" } else { "Yellow" }
                 Write-Host ("  [{0,-8}] {1,-28} | {2}" -f $t.Severity, $t.Type, $t.Detail) -ForegroundColor $color
             }
@@ -616,6 +671,9 @@ function Invoke-SentryMonitor {
                 Invoke-SentryDefensiveAction -Threats $allThreats -AutoPanic:$true
                 break
             }
+        } elseif ($allThreats.Count -gt 0) {
+            $gwTag = if ($baseGwMac) { "$baseGwIp ($baseGwMac)" } else { "VPN/Isolated" }
+            Write-Host ("`r  [{0}] [ALERT ACTIVE: {1} threat(s)] GW: {2} | Sentry Watching (Cycle #{3})" -f $timestamp, $allThreats.Count, $gwTag, $cycle) -ForegroundColor Yellow -NoNewline
         } else {
             $gwTag = if ($baseGwMac) { "$baseGwIp ($baseGwMac)" } else { "VPN/Isolated" }
             Write-Host ("`r  [{0}] [SECURE] GW: {1} | USB: {2} | Sockets: Clean | Sensors: Idle (Cycle #{3})" -f $timestamp, $gwTag, $baseUsb.Count, $cycle) -ForegroundColor DarkGray -NoNewline
