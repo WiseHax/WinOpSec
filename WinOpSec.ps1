@@ -286,8 +286,12 @@ function Show-TacticalHud {
         Write-Host "$HostOS [$Arch]  " -ForegroundColor Gray -NoNewline
         Write-Host "priv : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$privTag  " -ForegroundColor $privColor -NoNewline
-        Write-Host "ram : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$freeRamMb MB free / $totalRamMb MB" -ForegroundColor Gray
+        if ($totalRamMb -gt 0) {
+            Write-Host "ram : " -ForegroundColor DarkGray -NoNewline
+            Write-Host "$freeRamMb MB free / $totalRamMb MB" -ForegroundColor Gray
+        } else {
+            Write-Host ""
+        }
         Write-Host "  drive: " -ForegroundColor DarkGray -NoNewline
         Write-Host "$drvTag" -ForegroundColor $drvColor
 

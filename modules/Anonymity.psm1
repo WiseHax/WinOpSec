@@ -468,17 +468,32 @@ function Invoke-NetworkListScrub {
             }
         }
 
-        # Purge NetworkList Profiles & Signatures
-        foreach ($nlKey in @(
-            "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles",
+        # Purge NetworkList Profiles & Signatures (preserving active connection if connected)
+        $activeProfileGuid = $null
+        $profilesKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles"
+        if (Test-Path $profilesKey) {
+            Get-ChildItem -Path $profilesKey -ErrorAction SilentlyContinue | ForEach-Object {
+                $prop = Get-ItemProperty -Path $_.PSPath -ErrorAction SilentlyContinue
+                $pName = if ($prop -and $prop.ProfileName) { $prop.ProfileName } else { "" }
+                if (-not $PurgeAll -and $activeSsid -and ($pName -eq $activeSsid)) {
+                    $activeProfileGuid = $_.PSChildName
+                } else {
+                    Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        foreach ($sigKey in @(
             "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Unmanaged",
             "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Signatures\Managed"
         )) {
-            if (Test-Path $nlKey) {
-                Get-ChildItem -Path $nlKey -ErrorAction SilentlyContinue | ForEach-Object {
+            if (Test-Path $sigKey) {
+                Get-ChildItem -Path $sigKey -ErrorAction SilentlyContinue | ForEach-Object {
                     $prop = Get-ItemProperty -Path $_.PSPath -ErrorAction SilentlyContinue
-                    $pName = if ($prop -and $prop.ProfileName) { $prop.ProfileName } else { "" }
-                    if ($PurgeAll -or ($activeSsid -and $pName -ne $activeSsid) -or (-not $activeSsid)) {
+                    $sigGuid = if ($prop -and $prop.ProfileGuid) { $prop.ProfileGuid } else { "" }
+                    $sigDesc = if ($prop -and $prop.Description) { $prop.Description } else { "" }
+                    $isActive = ($activeProfileGuid -and ($sigGuid -eq $activeProfileGuid)) -or ($activeSsid -and ($sigDesc -eq $activeSsid))
+                    if ($PurgeAll -or -not $isActive) {
                         Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }

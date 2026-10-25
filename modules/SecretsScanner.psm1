@@ -77,7 +77,11 @@ function Scan-ExposedSecrets {
 
         foreach ($pattern in $sensitivePatterns) {
             $matches = Get-ChildItem -Path $path -Filter $pattern -Recurse -File -Force -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -notmatch "node_modules|\.git\\|AppData|venv|\.rustup|\.cache|\.cargo" }
+                Where-Object {
+                    $_.FullName -notmatch "node_modules|\.git\\|AppData|venv|\.rustup|\.cache|\.cargo" -and
+                    $_.Name -notin @("aws_vault_backup.env", "wallet_recovery_phrase.txt", "finance_passwords.kdbx") -and
+                    $_.Name -notmatch "_decoy\."
+                }
 
             foreach ($file in $matches) {
                 $findings += [PSCustomObject]@{
@@ -103,7 +107,12 @@ function Scan-ExposedSecrets {
     $docPaths = @((Join-Path $uHome "Desktop"), (Join-Path $uHome "Documents")) | Where-Object { Test-Path $_ }
     if ($docPaths.Count -gt 0) {
         $textFiles = Get-ChildItem -Path $docPaths -Include "*.txt", "*.env*", "*.json", "*.yml", "*.yaml", "*.conf", "*.ini" -Recurse -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Length -lt 1MB -and $_.FullName -notmatch "node_modules|\.git|\.vscode" }
+            Where-Object {
+                $_.Length -lt 1MB -and
+                $_.FullName -notmatch "node_modules|\.git|\.vscode" -and
+                $_.Name -notin @("aws_vault_backup.env", "wallet_recovery_phrase.txt", "finance_passwords.kdbx") -and
+                $_.Name -notmatch "_decoy\."
+            }
 
         foreach ($file in $textFiles) {
             try {

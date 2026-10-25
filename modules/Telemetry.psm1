@@ -156,8 +156,14 @@ function Audit-Telemetry {
             $pwrProps = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -ErrorAction SilentlyContinue
             if ($pwrProps) { $hiberBoot = $pwrProps.HiberbootEnabled }
         }
-        $hiberFileExists = Test-Path "C:\hiberfil.sys" -ErrorAction SilentlyContinue
-        $hiberClean = ($hiberBoot -eq 0 -or $null -eq $hiberBoot) -and (-not $hiberFileExists)
+        $hiberEnabled = $null
+        if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power") {
+            $pwrCtl = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "HibernateEnabled" -ErrorAction SilentlyContinue
+            if ($pwrCtl) { $hiberEnabled = $pwrCtl.HibernateEnabled }
+        }
+        $hiberFileExists = $false
+        try { $hiberFileExists = Test-Path "C:\hiberfil.sys" -ErrorAction SilentlyContinue } catch {}
+        $hiberClean = ($hiberBoot -eq 0 -or $null -eq $hiberBoot) -and ($hiberEnabled -eq 0 -or -not $hiberFileExists)
         $results += [PSCustomObject]@{
             Category = "HostOpSec"
             Check    = "Fast Startup & Hibernation Dump"
@@ -346,6 +352,10 @@ function Harden-Telemetry {
             $pwrMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
             if (Test-Path $pwrMgmt) {
                 Set-ItemProperty -Path $pwrMgmt -Name "HiberbootEnabled" -Type DWord -Value 0 -Force
+            }
+            $pwrCtl = "HKLM:\SYSTEM\CurrentControlSet\Control\Power"
+            if (Test-Path $pwrCtl) {
+                Set-ItemProperty -Path $pwrCtl -Name "HibernateEnabled" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
             }
             $pfParams = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
             if (-not (Test-Path $pfParams)) { New-Item -Path $pfParams -Force | Out-Null }

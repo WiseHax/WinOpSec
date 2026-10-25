@@ -45,16 +45,58 @@ function Audit-NetworkOpSec {
             Details  = if ($mdnsVal -eq 0) { "disabled" } else { "enabled (Responder vector)" }
         }
 
-        # 3. NetBIOS over TCP/IP (checked directly via NetBT Registry across all interfaces)
+        # 3. NetBIOS over TCP/IP (inspect active IP-enabled interfaces)
         $netbiosActive = $false
-        $netbtPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters\Interfaces"
-        if (Test-Path $netbtPath) {
-            $ifaces = Get-ChildItem -Path $netbtPath -ErrorAction SilentlyContinue
-            foreach ($ifc in $ifaces) {
-                $nb = (Get-ItemProperty -Path $ifc.PSPath -Name "NetbiosOptions" -ErrorAction SilentlyContinue).NetbiosOptions
-                if ($nb -ne 2) {
-                    $netbiosActive = $true
-                    break
+        $activeChecked = $false
+
+        # Method A: Query active IP-enabled network adapters via CIM/WMI
+        try {
+            $activeCfgs = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled = TRUE" -ErrorAction Stop
+            if ($activeCfgs) {
+                $activeChecked = $true
+                foreach ($cfg in $activeCfgs) {
+                    if ($cfg.TcpipNetbiosOptions -ne 2) {
+                        $netbiosActive = $true
+                        break
+                    }
+                }
+            }
+        } catch {
+            try {
+                $activeCfgs = Get-WmiObject Win32_NetworkAdapterConfiguration -Filter "IPEnabled = TRUE" -ErrorAction Stop
+                if ($activeCfgs) {
+                    $activeChecked = $true
+                    foreach ($cfg in $activeCfgs) {
+                        if ($cfg.TcpipNetbiosOptions -ne 2) {
+                            $netbiosActive = $true
+                            break
+                        }
+                    }
+                }
+            } catch {}
+        }
+
+        # Method B: Fallback to NetBT Registry matching active TCP/IP interfaces with assigned IP addresses
+        if (-not $activeChecked) {
+            $netbtPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters\Interfaces"
+            if (Test-Path $netbtPath) {
+                $ifaces = Get-ChildItem -Path $netbtPath -ErrorAction SilentlyContinue
+                foreach ($ifc in $ifaces) {
+                    $guid = $ifc.PSChildName -replace '^Tcpip_', ''
+                    $tcpipPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$guid"
+                    $hasActiveIp = $false
+                    if (Test-Path $tcpipPath) {
+                        $tcpProp = Get-ItemProperty -Path $tcpipPath -ErrorAction SilentlyContinue
+                        $ips = @($tcpProp.IPAddress) + @($tcpProp.DhcpIPAddress) | Where-Object { $_ -and $_ -ne '0.0.0.0' -and $_ -ne '::' }
+                        if ($ips.Count -gt 0) { $hasActiveIp = $true }
+                    }
+                    if ($hasActiveIp) {
+                        $nb = (Get-ItemProperty -Path $ifc.PSPath -Name "NetbiosOptions" -ErrorAction SilentlyContinue).NetbiosOptions
+                        if ($nb -ne 2) {
+                            $netbiosActive = $true
+                            break
+                        }
+                    }
                 }
             }
         }
@@ -63,7 +105,7 @@ function Audit-NetworkOpSec {
             Check    = "NetBIOS over TCP/IP"
             Status   = if (-not $netbiosActive) { "HARDENED" } else { "EXPOSED" }
             Risk     = "high"
-            Details  = if (-not $netbiosActive) { "disabled on all interfaces (NetbiosOptions=2)" } else { "enabled on >=1 interface" }
+            Details  = if (-not $netbiosActive) { "disabled on all active interfaces (NetbiosOptions=2)" } else { "enabled on active interface" }
         }
 
         # 4. SMB Signing (NTLM Relay mitigation)
@@ -234,6 +276,11 @@ function Harden-NetworkOpSec {
                 Get-ChildItem -Path $netbtPath -ErrorAction SilentlyContinue | ForEach-Object {
                     Set-ItemProperty -Path $_.PSPath -Name "NetbiosOptions" -Type DWord -Value 2 -Force -ErrorAction SilentlyContinue
                 }
+                try {
+                    Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled = TRUE" -ErrorAction SilentlyContinue | ForEach-Object {
+                        Invoke-CimMethod -InputObject $_ -MethodName SetTcpipNetbios -Arguments @{ TcpipNetbiosOptions = [uint32]2 } -ErrorAction SilentlyContinue | Out-Null
+                    }
+                } catch {}
                 Write-Host "  ok  netbios_over_tcpip = disabled across all interfaces" -ForegroundColor Green
             }
 

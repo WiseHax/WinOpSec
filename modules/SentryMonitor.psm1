@@ -343,46 +343,44 @@ function Test-DnsHijack {
         $mullvadAdapter = Get-NetAdapter -Name "*mullvad*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" }
         $vpnActive = ($mullvadRoute -ne $null) -or ($mullvadAdapter -ne $null)
 
-        # When Mullvad is active, all DNS queries are encrypted through 10.64.0.1 and non-tunnel DNS is blocked by WFP.
-        # Local DHCP router addresses on the physical Wi-Fi interface are inactive and not rogue hijackers.
-        if ($vpnActive) {
-            return $alerts
-        }
-
-        $dnsList = @()
-        $dnsAddrs = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
-        if ($dnsAddrs) {
-            foreach ($d in $dnsAddrs) {
-                if ($d.ServerAddresses) { $dnsList += $d.ServerAddresses }
-            }
-        }
-
-        if ($dnsList.Count -eq 0) {
-            $ipLines = ipconfig /all 2>$null
-            foreach ($l in $ipLines) {
-                if ($l -match 'DNS Servers[ .:]+:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})') {
-                    $dnsList += $Matches[1]
+        # When VPN is active, all DNS queries are encrypted through the tunnel and non-tunnel DNS is blocked by WFP.
+        # Local DHCP router addresses on the physical Wi-Fi interface are dormant and not rogue hijackers.
+        if (-not $vpnActive) {
+            $dnsList = @()
+            $dnsAddrs = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
+            if ($dnsAddrs) {
+                foreach ($d in $dnsAddrs) {
+                    if ($d.ServerAddresses) { $dnsList += $d.ServerAddresses }
                 }
             }
-        }
 
-        $knownSafeDns = @("10.64.0.1", "1.1.1.1", "1.0.0.1", "9.9.9.9", "149.112.112.112", "8.8.8.8", "8.8.4.4")
+            if ($dnsList.Count -eq 0) {
+                $ipLines = ipconfig /all 2>$null
+                foreach ($l in $ipLines) {
+                    if ($l -match 'DNS Servers[ .:]+:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})') {
+                        $dnsList += $Matches[1]
+                    }
+                }
+            }
 
-        foreach ($dns in $dnsList) {
-            # Expected local router gateway from DHCP
-            if ($BaselineGatewayIP -and ($dns -eq $BaselineGatewayIP)) { continue }
+            $knownSafeDns = @("10.64.0.1", "1.1.1.1", "1.0.0.1", "9.9.9.9", "149.112.112.112", "8.8.8.8", "8.8.4.4")
 
-            # Pre-existing baseline DNS from session start
-            if ($BaselineDns -and ($dns -in $BaselineDns)) { continue }
+            foreach ($dns in $dnsList) {
+                # Expected local router gateway from DHCP
+                if ($BaselineGatewayIP -and ($dns -eq $BaselineGatewayIP)) { continue }
 
-            # Known trusted public DNS
-            if ($dns -in $knownSafeDns) { continue }
+                # Pre-existing baseline DNS from session start
+                if ($BaselineDns -and ($dns -in $BaselineDns)) { continue }
 
-            $alerts += [PSCustomObject]@{
-                Severity = "HIGH"
-                Type     = "ROGUE_DNS_RESOLVER"
-                Target   = $dns
-                Detail   = "Rogue or unexpected DNS resolver ($dns) active. Potential DNS hijacking/drift detected."
+                # Known trusted public DNS
+                if ($dns -in $knownSafeDns) { continue }
+
+                $alerts += [PSCustomObject]@{
+                    Severity = "HIGH"
+                    Type     = "ROGUE_DNS_RESOLVER"
+                    Target   = $dns
+                    Detail   = "Rogue or unexpected DNS resolver ($dns) active. Potential DNS hijacking/drift detected."
+                }
             }
         }
     } catch {}
@@ -682,11 +680,23 @@ function Invoke-SentryMonitor {
             $reportedThreatKeys.Remove($k) | Out-Null
         }
 
+        $winWidth = 80
+        try {
+            if ($Host.UI.RawUI.WindowSize.Width -gt 30) {
+                $winWidth = $Host.UI.RawUI.WindowSize.Width
+            }
+        } catch {}
+
         if ($newThreats.Count -gt 0) {
             Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) ACTIVE ($($newThreats.Count) new)!" -ForegroundColor Red
             foreach ($t in $newThreats) {
                 $color = if ($t.Severity -eq "CRITICAL") { "Red" } else { "Yellow" }
-                Write-Host ("  [{0,-8}] {1,-20} | {2}" -f $t.Severity, $t.Type, $t.Detail) -ForegroundColor $color
+                $detailStr = $t.Detail
+                $maxDetailLen = $winWidth - 36
+                if ($maxDetailLen -gt 15 -and $detailStr.Length -gt $maxDetailLen) {
+                    $detailStr = $detailStr.Substring(0, $maxDetailLen - 3) + "..."
+                }
+                Write-Host ("  [{0,-8}] {1,-20} | {2}" -f $t.Severity, $t.Type, $detailStr) -ForegroundColor $color
             }
 
             if ($AudioAlert -or $AutoPanic) {
@@ -699,10 +709,20 @@ function Invoke-SentryMonitor {
             }
         } elseif ($allThreats.Count -gt 0) {
             $gwTag = if ($baseGwMac) { "$baseGwIp ($baseGwMac)" } else { "VPN/Isolated" }
-            Write-Host ("`r  [{0}] [ALERT ACTIVE: {1} threat(s)] GW: {2} | Sentry Watching (Cycle #{3})" -f $timestamp, $allThreats.Count, $gwTag, $cycle) -ForegroundColor Yellow -NoNewline
+            $statusStr = "  [{0}] [ALERT: {1} threat(s)] GW: {2} | Sentry Watching (#{3})" -f $timestamp, $allThreats.Count, $gwTag, $cycle
+            if ($statusStr.Length -ge $winWidth) {
+                $statusStr = $statusStr.Substring(0, [math]::Max(10, $winWidth - 2))
+            }
+            $statusStr = $statusStr.PadRight([math]::Min(120, $winWidth - 1))
+            Write-Host ("`r" + $statusStr) -ForegroundColor Yellow -NoNewline
         } else {
             $gwTag = if ($baseGwMac) { "$baseGwIp ($baseGwMac)" } else { "VPN/Isolated" }
-            Write-Host ("`r  [{0}] [SECURE] GW: {1} | USB: {2} | Sockets: Clean | Sensors: Idle (Cycle #{3})" -f $timestamp, $gwTag, $baseUsb.Count, $cycle) -ForegroundColor DarkGray -NoNewline
+            $statusStr = "  [{0}] [SECURE] GW: {1} | USB: {2} | Clean (Cycle #{3})" -f $timestamp, $gwTag, $baseUsb.Count, $cycle
+            if ($statusStr.Length -ge $winWidth) {
+                $statusStr = $statusStr.Substring(0, [math]::Max(10, $winWidth - 2))
+            }
+            $statusStr = $statusStr.PadRight([math]::Min(120, $winWidth - 1))
+            Write-Host ("`r" + $statusStr) -ForegroundColor DarkGray -NoNewline
         }
 
         if ($SinglePass) {

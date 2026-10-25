@@ -105,7 +105,18 @@ function Save-OpSecState {
             @{ Path = "HKCU:\Software\Policies\Microsoft\Edge"; Name = "WebRtcIPHandlingPolicy" },
             @{ Path = "HKCU:\Software\Policies\Microsoft\Edge"; Name = "PasswordManagerEnabled" },
             @{ Path = "HKCU:\Software\Policies\Microsoft\Edge"; Name = "DnsOverHttpsMode" },
-            @{ Path = "HKCU:\Software\Policies\Microsoft\Edge"; Name = "DnsOverHttpsTemplates" }
+            @{ Path = "HKCU:\Software\Policies\Microsoft\Edge"; Name = "DnsOverHttpsTemplates" },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"; Name = "DisableExternalDMAUnderLock" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"; Name = "DisableWpbtExecution" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name = "DisablePagingExecutive" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name = "ClearPageFileAtShutdown" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"; Name = "EnablePrefetcher" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"; Name = "EnableSuperfetch" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"; Name = "HiberbootEnabled" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Power"; Name = "HibernateEnabled" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"; Name = "RequireSecuritySignature" },
+            @{ Path = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"; Name = "SMB1" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad"; Name = "WpadOverride" }
         )
 
         foreach ($entry in $keysToMonitor) {

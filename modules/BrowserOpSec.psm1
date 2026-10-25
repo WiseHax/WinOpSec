@@ -444,6 +444,14 @@ function Clear-BrowserHistoryAndTraces {
         $tag = if ($isTotal) { " [TOTAL WIPED + SYNC SEVERED]" } else { "" }
         Write-Host "  ok  shredded history, sessions & caches for $($p.Browser) [$($p.Folder) / $($p.DisplayName)]$tag ($count artifacts)" -ForegroundColor Green
     }
+
+    # Wipe any orphaned winopsec_ephemeral profiles in Temp
+    try {
+        $tempDir = [System.IO.Path]::GetTempPath()
+        Get-ChildItem -Path $tempDir -Filter "winopsec_ephemeral_*" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
 }
 
 function Clear-BrowserAutofill {

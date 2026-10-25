@@ -54,7 +54,7 @@ function Invoke-ChameleonNoise {
 
     # 1. Generate realistic civilian document payloads
     $decoyTemplates = @(
-        @{ Name = "Household_Budget_2026_decoy.txt"; Content = "# Personal Monthly Expenses 2026`nRent: $1,200`nUtilities: $180`nGroceries: $450`nInternet: $75`nSavings Target: $500/mo" },
+        @{ Name = "Household_Budget_2026_decoy.txt"; Content = "# Personal Monthly Expenses 2026`nRent: `$1,200`nUtilities: `$180`nGroceries: `$450`nInternet: `$75`nSavings Target: `$500/mo" },
         @{ Name = "Italian_Pasta_Recipes_decoy.txt"; Content = "Classic Carbonara:`n- 400g Spaghetti`n- 150g Guanciale or Pancetta`n- 4 large egg yolks`n- 100g Pecorino Romano`n- Freshly cracked black pepper" },
         @{ Name = "Home_Renovation_Notes_decoy.txt"; Content = "Kitchen Remodel Tasklist:`n1. Measure countertop dimensions`n2. Inspect plumbing fittings under sink`n3. Pick ceramic tile backsplash`n4. Request quote from contractor" },
         @{ Name = "Fitness_Weekly_Routine_decoy.txt"; Content = "Weekly Training Schedule:`nMon: Upper Body Strength (Push)`nTue: 5km Cardio Zone 2`nWed: Lower Body & Core`nThu: Rest & Mobility`nFri: Full Body Circuit" },
