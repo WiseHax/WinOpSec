@@ -102,12 +102,12 @@ function Audit-Anonymity {
         if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles") {
             $nlCount = @(Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles" -ErrorAction SilentlyContinue).Count
         }
-        $nlHardened = ($nlCount -eq 0)
+        $nlHardened = ($nlCount -le 1)
         $results += [PSCustomObject]@{
             Category = "Anonymity"
             Check    = "Wi-Fi BSSID / NetworkList History"
             Status   = if ($nlHardened) { "HARDENED" } else { "EXPOSED" }
-            Details  = if ($nlHardened) { "clean (no WiGLE geolocation traces)" } else { "$nlCount saved networks (WiGLE traceable) [risk:high]" }
+            Details  = if ($nlCount -eq 0) { "clean (0 saved networks; no WiGLE traces)" } elseif ($nlCount -eq 1) { "hardened (1 active network only; historical BSSIDs clean)" } else { "$nlCount saved networks (WiGLE traceable) [risk:high]" }
         }
     } elseif ($IsMacOS) {
         $locEnabled = (defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>$null)
@@ -421,15 +421,52 @@ function Invoke-MacSpoof {
 }
 
 function Invoke-NetworkListScrub {
+    [CmdletBinding()]
+    param(
+        [switch]$PurgeAll
+    )
+
     if (-not (Test-IsWindowsOS)) { return }
     if (-not (Test-AdminPrivilege)) {
         Write-Host "  [!] Scrubbing NetworkList Wi-Fi profiles requires administrator privileges." -ForegroundColor Yellow
         return
     }
-    Write-Host "  -- scrubbing NetworkList Wi-Fi profiles & physical geolocation BSSIDs..." -ForegroundColor Cyan
+
+    Write-Host "  -- scrubbing NetworkList Wi-Fi profiles & physical geolocation BSSIDs..." -ForegroundColor DarkGray
     try {
-        # Purge all saved WLAN profiles from netsh
-        netsh wlan delete profile name=* 2>$null | Out-Null
+        # Detect currently active connected Wi-Fi SSID to avoid dropping live connection
+        $activeSsid = $null
+        $wlanOut = netsh wlan show interfaces 2>$null
+        if ($wlanOut) {
+            foreach ($line in $wlanOut) {
+                if ($line -match '^\s*SSID\s*:\s*(.+)$' -and $line -notmatch 'BSSID') {
+                    $activeSsid = $Matches[1].Trim()
+                    break
+                }
+            }
+        }
+
+        # Retrieve all saved WLAN profile names
+        $profileList = @()
+        $profilesOut = netsh wlan show profiles 2>$null
+        if ($profilesOut) {
+            foreach ($line in $profilesOut) {
+                if ($line -match ':\s*(.+)$') {
+                    $pName = $Matches[1].Trim()
+                    if ($pName -and $pName -notmatch "---" -and $pName -notmatch "<None>") {
+                        $profileList += $pName
+                    }
+                }
+            }
+        }
+
+        $purgedProfiles = 0
+        foreach ($p in $profileList) {
+            if ($PurgeAll -or ($activeSsid -and $p -ne $activeSsid) -or (-not $activeSsid)) {
+                netsh wlan delete profile name="$p" 2>$null | Out-Null
+                $purgedProfiles++
+            }
+        }
 
         # Purge NetworkList Profiles & Signatures
         foreach ($nlKey in @(
@@ -439,13 +476,22 @@ function Invoke-NetworkListScrub {
         )) {
             if (Test-Path $nlKey) {
                 Get-ChildItem -Path $nlKey -ErrorAction SilentlyContinue | ForEach-Object {
-                    Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                    $prop = Get-ItemProperty -Path $_.PSPath -ErrorAction SilentlyContinue
+                    $pName = if ($prop -and $prop.ProfileName) { $prop.ProfileName } else { "" }
+                    if ($PurgeAll -or ($activeSsid -and $pName -ne $activeSsid) -or (-not $activeSsid)) {
+                        Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                    }
                 }
             }
         }
-        Write-Host "  ok  purged NetworkList profiles & WLAN connection histories (defeats WiGLE triangulation)" -ForegroundColor Green
+
+        if ($activeSsid -and -not $PurgeAll) {
+            Write-Host "  ok  purged historical Wi-Fi connection traces (preserved active connection: $activeSsid)" -ForegroundColor Green
+        } else {
+            Write-Host "  ok  purged all NetworkList profiles & WLAN connection histories (WiGLE triangulation defeated)" -ForegroundColor Green
+        }
     } catch {
-        Write-Host "  !!  NetworkList scrub failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [!] NetworkList scrub error: $($_.Exception.Message)" -ForegroundColor DarkGray
     }
 }
 
