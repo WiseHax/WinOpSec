@@ -700,9 +700,7 @@ function Invoke-RegistryLogSanitize {
 
 function Invoke-PanicProtocol {
     param([switch]$PowerOff)
-    Write-Host "`n  ================================================================" -ForegroundColor Red
-    Write-Host "  [!] EXECUTING EMERGENCY DURESS / PANIC OBLITERATION PROTOCOL..." -ForegroundColor Red
-    Write-Host "  ================================================================" -ForegroundColor Red
+    Write-Host "`n  [!] Executing Emergency Duress / Panic Protocol..." -ForegroundColor Red
 
     if (Test-IsWindowsOS) {
         # 1. Terminate all browser, communication, and sensitive developer processes
@@ -1021,9 +1019,7 @@ function Invoke-SelfDestruct {
         [switch]$PowerOff = $true
     )
 
-    Write-Host "`n  ================================================================" -ForegroundColor Red
-    Write-Host "  [!] GHOST PROTOCOL: PERMANENT SELF-DESTRUCT INITIATED" -ForegroundColor Red
-    Write-Host "  ================================================================" -ForegroundColor Red
+    Write-Host "`n  [!] Ghost Protocol: Permanent Self-Destruct Initiated..." -ForegroundColor Red
     Write-Host "  This command will cryptographically shred and permanently delete:" -ForegroundColor Yellow
     Write-Host "    - All WinOpSec scripts, modules, audio assets, and configurations" -ForegroundColor DarkGray
     Write-Host "    - All saved posture backups and canary manifests" -ForegroundColor DarkGray

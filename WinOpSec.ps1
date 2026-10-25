@@ -69,8 +69,7 @@ function Write-Header {
     $drvColor = if ($drvCtx -and $drvCtx.IsUsb) { "Green" } else { "DarkGray" }
 
     Write-Host ""
-    Write-Host "  winopsec " -ForegroundColor White -NoNewline
-    Write-Host "v5.0  //  apex opsec, defensive tripwire & forensic deception platform" -ForegroundColor DarkGray
+    Write-Host "  WinOpSec" -ForegroundColor Cyan
     Write-Host "  os   : " -ForegroundColor DarkGray -NoNewline
     Write-Host "$HostOS [$Arch]" -ForegroundColor Gray
     Write-Host "  priv : " -ForegroundColor DarkGray -NoNewline
@@ -106,68 +105,68 @@ function Write-StatusRow {
 }
 
 function Invoke-Audit {
-    Write-Host "  -- telemetry, lsass & host shield" -ForegroundColor DarkGray
+    Write-Host "  telemetry, lsass & host shield" -ForegroundColor DarkGray
     $telemetryResults = Audit-Telemetry
     foreach ($r in $telemetryResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
-    Write-Host "`n  -- anonymity & sensors (vpn-safe)" -ForegroundColor DarkGray
+    Write-Host "`n  anonymity & sensors (vpn-safe)" -ForegroundColor DarkGray
     $anonymityResults = Audit-Anonymity
     foreach ($r in $anonymityResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
-    Write-Host "`n  -- network & protocol leaks" -ForegroundColor DarkGray
+    Write-Host "`n  network & protocol leaks" -ForegroundColor DarkGray
     $networkResults = Audit-NetworkOpSec
     foreach ($r in $networkResults) {
         Write-StatusRow -State $r.Status -Label "$($r.Protocol): $($r.Check)" -Detail "$($r.Details) [risk:$($r.Risk)]"
     }
 
-    Write-Host "`n  -- mullvad / vpn tunnel & egress firewall" -ForegroundColor DarkGray
+    Write-Host "`n  mullvad / vpn tunnel & egress firewall" -ForegroundColor DarkGray
     $egressResults = Audit-VpnAndEgress
     foreach ($r in $egressResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
-    Write-Host "`n  -- browser opsec (webrtc, doh & vault shield)" -ForegroundColor DarkGray
+    Write-Host "`n  browser opsec (webrtc, doh & vault shield)" -ForegroundColor DarkGray
     $browserResults = Audit-BrowserOpSec
     foreach ($r in $browserResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
-    Write-Host "`n  -- runtime traces & forensic artifacts" -ForegroundColor DarkGray
+    Write-Host "`n  runtime traces & forensic artifacts" -ForegroundColor DarkGray
     $traceResults = Audit-Traces
     foreach ($r in $traceResults) {
         Write-StatusRow -State $r.Status -Label $r.Artifact -Detail $r.Count
     }
 
-    Write-Host "`n  -- hardware identity & cryptographic anchors" -ForegroundColor DarkGray
+    Write-Host "`n  hardware identity & cryptographic anchors" -ForegroundColor DarkGray
     $hwResults = Audit-HardwareIdentity
     foreach ($r in $hwResults) {
         Write-StatusRow -State $(if ($r.Status -eq "CLEAN") { "CLEAN" } else { "CONFIGURABLE" }) -Label $r.Artifact -Detail "$($r.Value) [risk:$($r.Risk)]"
     }
 
-    Write-Host "`n  -- camouflage & plausible deniability" -ForegroundColor DarkGray
+    Write-Host "`n  camouflage & plausible deniability" -ForegroundColor DarkGray
     $chamResults = Audit-ChameleonState
     foreach ($r in $chamResults) {
         Write-StatusRow -State $(if ($r.Posture -eq "CIVILIAN_CAMOUFLAGE") { "HARDENED" } else { "CONFIGURABLE" }) -Label $r.Profile -Detail "$($r.Posture) ($($r.Decoys))"
     }
 
-    Write-Host "`n  -- public sentry & defensive tripwire posture" -ForegroundColor DarkGray
+    Write-Host "`n  public sentry & defensive tripwire posture" -ForegroundColor DarkGray
     $sentryResults = Audit-SentryPosture
     foreach ($r in $sentryResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
-    Write-Host "`n  -- breach traps & canary honeytokens" -ForegroundColor DarkGray
+    Write-Host "`n  breach traps & canary honeytokens" -ForegroundColor DarkGray
     $canaryTraps = Audit-CanaryTraps
     foreach ($ct in $canaryTraps) {
         $st = if ($ct.State -eq "ARMED") { "HARDENED" } elseif ($ct.State -eq "TRIPPED") { "EXPOSED" } else { "CONFIGURABLE" }
         Write-StatusRow -State $st -Label "Canary: $($ct.Trap)" -Detail $ct.Details
     }
 
-    Write-Host "`n  -- disk encryption" -ForegroundColor DarkGray
+    Write-Host "`n  disk encryption" -ForegroundColor DarkGray
     $diskResult = Audit-DiskEncryption
     Write-StatusRow -State $diskResult.Status -Label $diskResult.Target -Detail $diskResult.Details
 
@@ -281,7 +280,7 @@ function Show-TacticalHud {
         $drvColor = if ($drvCtx -and $drvCtx.IsUsb) { "Green" } else { "DarkGray" }
 
         Write-Host ""
-        Write-Host "  ============================== WINOPSEC v5.0 APEX HUD ==============================" -ForegroundColor DarkGray
+        Write-Host "  WinOpSec Tactical HUD" -ForegroundColor Cyan
         Write-Host "  host : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$HostOS [$Arch]  " -ForegroundColor Gray -NoNewline
         Write-Host "priv : " -ForegroundColor DarkGray -NoNewline
@@ -295,7 +294,7 @@ function Show-TacticalHud {
         Write-Host "  drive: " -ForegroundColor DarkGray -NoNewline
         Write-Host "$drvTag" -ForegroundColor $drvColor
 
-        Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
+        Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
 
         Write-Host "  [SENTRY PERIMETER (8 VECTORS)]            [TUNNEL & KERNEL GUARDS]" -ForegroundColor White
         Write-Host "  [PASS] Gateway ARP Integrity              " -ForegroundColor DarkGray -NoNewline
@@ -331,12 +330,12 @@ function Show-TacticalHud {
         Write-Host "UEFI WPBT  : " -ForegroundColor DarkGray -NoNewline
         Write-Host "Firmware ROM Execution Disabled" -ForegroundColor Green
 
-        Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
+        Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
         Write-Host "  SECURITY POSTURE : " -ForegroundColor DarkGray -NoNewline
         Write-Host "[===================================> ] 94.2% (49/52 PASS)" -ForegroundColor Green
         Write-Host "  COUNTERMEASURES  : " -ForegroundColor DarkGray -NoNewline
         Write-Host "Auto-Panic Armed (Instant Route Sever & Workstation Lock)" -ForegroundColor Red
-        Write-Host "  ====================================================================================" -ForegroundColor DarkGray
+        Write-Host ""
         Write-Host "  [1] Cafe   [2] Lockdown   [3] Canary   [4] Wipe RAM   [5] USB Deploy   [R] Refresh   [0] Exit HUD" -ForegroundColor Gray
         Write-Host ""
 
@@ -403,7 +402,7 @@ function Show-TacticalHud {
 }
 
 function Show-Menu {
-    Write-Host "  -- winopsec v5.0 -------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "  WinOpSec Console" -ForegroundColor Cyan
     Write-Host "  select an option below or type 'quick' for the 1-click scenario menu.`n" -ForegroundColor DarkGray
 
     Write-Host "  [1] audit & recon" -ForegroundColor White
@@ -457,11 +456,11 @@ function Show-Menu {
     Write-Host "      panic -poweroff - emergency hard shutdown with zero disk traces" -ForegroundColor DarkRed
     Write-Host "      restore         - rollback system settings from saved snapshot" -ForegroundColor Gray
     Write-Host "      q / quit        - exit console" -ForegroundColor DarkGray
-    Write-Host "  ------------------------------------------------------------------------------`n" -ForegroundColor DarkGray
+    Write-Host ""
 }
 
 function Invoke-GuidedWizard {
-    Write-Host "`n  -- 1-click scenario wizard ---------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "`n  1-Click Scenario Wizard" -ForegroundColor Cyan
     Write-Host "  choose your current operational scenario:`n" -ForegroundColor Gray
 
     Write-Host "  [1] Cafe / Public Wi-Fi Mode" -ForegroundColor White
@@ -529,7 +528,7 @@ function Show-CommandGuide {
     Write-Host ""
     switch -Regex ($t) {
         "^(canary|honeytoken|trap)$" {
-            Write-Host "  === CANARY HONEYTOKEN BREACH TRAP GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  Canary Honeytoken Breach Trap Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Early-warning tripwire that detects malware and unauthorized intruders." -ForegroundColor White
             Write-Host "  How it works:" -ForegroundColor Gray
             Write-Host "    Plants realistic bait files (AWS keys, crypto seed, password database)" -ForegroundColor DarkGray
@@ -541,7 +540,7 @@ function Show-CommandGuide {
             Write-Host "    canary purge  -> Shred and remove all bait files" -ForegroundColor Gray
         }
         "^(sentry|monitor|tripwire)$" {
-            Write-Host "  === SENTRY & DEFENSIVE TRIPWIRE GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  Sentry & Defensive Tripwire Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Real-time defense against attackers on the same public Wi-Fi or LAN." -ForegroundColor White
             Write-Host "  Monitors 8 attack vectors:" -ForegroundColor Gray
             Write-Host "    - ARP Poisoning / MITM (Bettercap/Ettercap gateway spoofing)" -ForegroundColor DarkGray
@@ -557,7 +556,7 @@ function Show-CommandGuide {
             Write-Host "    sentry -autopanic -> Auto-disables Wi-Fi and locks PC if attacked" -ForegroundColor Red
         }
         "^(chameleon|camouflage|noise)$" {
-            Write-Host "  === FORENSIC CHAMELEON GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  Forensic Chameleon Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Defeats the SANS FOR500 'Evidence of Absence / Too Clean Machine' trap." -ForegroundColor White
             Write-Host "  Why it matters:" -ForegroundColor Gray
             Write-Host "    Digital forensics experts look for machines that have 0 logs and 0 recent files." -ForegroundColor DarkGray
@@ -568,7 +567,7 @@ function Show-CommandGuide {
             Write-Host "    chameleon -purge -> Clean up all decoy files" -ForegroundColor Gray
         }
         "^(deadman|buskill|usb)$" {
-            Write-Host "  === USB DEAD MAN'S SWITCH GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  USB Dead Man's Switch Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Anti-snatch physical defense (like the Silk Road Glen Park arrest)." -ForegroundColor White
             Write-Host "  How it works:" -ForegroundColor Gray
             Write-Host "    Attach a USB flash drive with a wrist lanyard to your laptop." -ForegroundColor DarkGray
@@ -578,7 +577,7 @@ function Show-CommandGuide {
             Write-Host "    deadman          -> Select USB drive and arm monitor (200ms poll)" -ForegroundColor Yellow
         }
         "^(pca|wipe-pca)$" {
-            Write-Host "  === PROGRAM COMPATIBILITY ASSISTANT (PCA) GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  Program Compatibility Assistant (PCA) Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Neutralizes Windows 11 hidden program execution tracking." -ForegroundColor White
             Write-Host "  Why it matters:" -ForegroundColor Gray
             Write-Host "    Windows 11 silently logs every executable you run into PcaAppLaunchDic.txt." -ForegroundColor DarkGray
@@ -587,7 +586,7 @@ function Show-CommandGuide {
             Write-Host "    wipe-pca         -> Purges dictionary and locks file with read-only ACL" -ForegroundColor Yellow
         }
         "^(shellbags|wipe-shellbags)$" {
-            Write-Host "  === SHELLBAGS SANITIZER GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  ShellBags Sanitizer Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Wipes Explorer folder browsing and USB folder access history." -ForegroundColor White
             Write-Host "  Why it matters:" -ForegroundColor Gray
             Write-Host "    Windows stores every folder, flash drive, and network share you ever opened" -ForegroundColor DarkGray
@@ -596,8 +595,7 @@ function Show-CommandGuide {
             Write-Host "    wipe-shellbags   -> Removes all BagMRU and Bags keys" -ForegroundColor Yellow
         }
         "^(mullvad)$" {
-            Write-Host "  === MULLVAD PARTNER LOCKDOWN GUIDE ===" -ForegroundColor DarkGray
-            Write-Host "  Purpose: Enforces state-level cryptographic VPN protections." -ForegroundColor White
+            Write-Host "  Mullvad Partner Lockdown Guide" -ForegroundColor Cyan
             Write-Host "  Features:" -ForegroundColor Gray
             Write-Host "    - WFP strict killswitch (blocks all non-tunnel traffic)" -ForegroundColor DarkGray
             Write-Host "    - Post-Quantum Kyber-1024 encryption (quantum-resistant)" -ForegroundColor DarkGray
@@ -608,7 +606,7 @@ function Show-CommandGuide {
             Write-Host "    mullvad rotate   -> Generate fresh WireGuard keys" -ForegroundColor Gray
         }
         "^(panic)$" {
-            Write-Host "  === EMERGENCY PANIC PROTOCOL GUIDE ===" -ForegroundColor Red
+            Write-Host "  Emergency Panic Protocol Guide" -ForegroundColor Red
             Write-Host "  Purpose: Instant duress countermeasure under active raid or compromise." -ForegroundColor White
             Write-Host "  Actions taken:" -ForegroundColor Gray
             Write-Host "    - Terminates browsers, messengers, and shell processes" -ForegroundColor DarkGray
@@ -620,7 +618,7 @@ function Show-CommandGuide {
             Write-Host "    panic -poweroff  -> Emergency hard shutdown with zero disk traces" -ForegroundColor Red
         }
         "^(vanish|burn)$" {
-            Write-Host "  === GHOST SELF-DESTRUCT (VANISH PROTOCOL) GUIDE ===" -ForegroundColor Red
+            Write-Host "  Ghost Self-Destruct (Vanish Protocol) Guide" -ForegroundColor Red
             Write-Host "  Purpose: Irreversible elimination of WinOpSec, traces, and forensic anchors." -ForegroundColor White
             Write-Host "  Actions taken:" -ForegroundColor Gray
             Write-Host "    - Terminates browsers, messengers, and password vaults" -ForegroundColor DarkGray
@@ -632,7 +630,7 @@ function Show-CommandGuide {
             Write-Host "    vanish           -> Prompts for 'NUKE' confirmation before executing" -ForegroundColor Red
         }
         "^(usb|usb-shield|usb-deploy)$" {
-            Write-Host "  === USB-DRIVEN TACTICAL OPERATIONS GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  USB Tactical Operations Guide" -ForegroundColor Cyan
             Write-Host "  Purpose: Run WinOpSec completely air-gapped from USB with zero host footprint." -ForegroundColor White
             Write-Host "  Key Capabilities:" -ForegroundColor Gray
             Write-Host "    - 'usb list'       -> Displays connected USB flash drives and BitLocker status" -ForegroundColor DarkGray
@@ -643,7 +641,7 @@ function Show-CommandGuide {
             Write-Host "    Running from USB leaves ZERO WinOpSec source code or tools on the host SSD." -ForegroundColor Yellow
         }
         default {
-            Write-Host "  === WINOPSEC OPERATIONAL GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  WinOpSec Operational Guide" -ForegroundColor Cyan
             Write-Host "  Type 'guide <topic>' for in-depth details on any module:`n" -ForegroundColor DarkGray
             Write-Host "    guide sentry     -> Real-time Public Wi-Fi tripwire & BadUSB monitor" -ForegroundColor White
             Write-Host "    guide chameleon  -> Synthetic civilian camouflage & SANS anti-absence" -ForegroundColor White

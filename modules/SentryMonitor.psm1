@@ -583,7 +583,7 @@ function Invoke-SentryMonitor {
         return
     }
 
-    Write-Host "`n  -- public sentry guard -----------------------------------------" -ForegroundColor DarkGray
+    Write-Host "`n  Public Sentry Guard" -ForegroundColor Cyan
     Write-Host "  monitoring public Wi-Fi & LAN perimeter for hostile activity." -ForegroundColor Gray
     Write-Host "  interval  : every $IntervalSec seconds  |  autopanic: $(if ($AutoPanic) { 'armed (auto-sever)' } else { 'alert only' })" -ForegroundColor $(if ($AutoPanic) { 'Red' } else { 'DarkGray' })
     Write-Host "  press Ctrl+C to stop monitoring.`n" -ForegroundColor DarkGray

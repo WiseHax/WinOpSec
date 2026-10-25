@@ -47,9 +47,7 @@ function Invoke-ChameleonNoise {
         return
     }
 
-    Write-Host "`n  ================================================================" -ForegroundColor Cyan
-    Write-Host "  [+] INJECTING FORENSIC CHAMELEON / PLAUSIBLE DENIABILITY NOISE..." -ForegroundColor Cyan
-    Write-Host "  ================================================================" -ForegroundColor Cyan
+    Write-Host "`n  [+] Injecting Forensic Chameleon plausible deniability noise..." -ForegroundColor Cyan
     Write-Host "  defense: Defeats SANS FOR500 'Too Clean Machine' / Evidence of Absence doctrine" -ForegroundColor DarkGray
 
     # 1. Generate realistic civilian document payloads

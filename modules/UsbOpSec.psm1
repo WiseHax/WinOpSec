@@ -86,7 +86,7 @@ function Show-UsbInventory {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n  -- usb hardware storage inventory -----------------------------" -ForegroundColor DarkGray
+    Write-Host "`n  USB Storage Inventory" -ForegroundColor Cyan
     $drives = Get-UsbDrives
     if ($drives.Count -eq 0) {
         Write-Host "  no removable usb flash drives detected." -ForegroundColor DarkGray
@@ -115,7 +115,7 @@ function Deploy-UsbOpSec {
 
     $selectedDrive = $TargetDrive
     if (-not $selectedDrive) {
-        Write-Host "`n  -- select target usb flash drive for deployment ---------------" -ForegroundColor DarkGray
+        Write-Host "`n  Select target USB flash drive for deployment:" -ForegroundColor Cyan
         for ($i = 0; $i -lt $drives.Count; $i++) {
             $d = $drives[$i]
             Write-Host "  [$($i + 1)] $($d.DriveLetter) ($($d.VolumeLabel) - $($d.FreeGB) GB free / $($d.TotalGB) GB) [$($d.BitLocker)]" -ForegroundColor White

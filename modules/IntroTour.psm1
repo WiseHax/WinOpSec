@@ -299,7 +299,6 @@ function Invoke-CyberIntro {
     $delay = if ($Fast) { 0 } else { 12 }
 
     Write-Host ""
-    Write-Host "  ------------------------------------------------------------------" -ForegroundColor DarkGray
 
     $asciiHello = @(
         "     _          _ _       ",
@@ -315,7 +314,6 @@ function Invoke-CyberIntro {
         Start-Sleep -Milliseconds 20
     }
 
-    Write-Host "  ------------------------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "  [press space or enter to skip step, esc to skip all]`n" -ForegroundColor DarkGray
 
     Play-SubtleTone -Freq 800 -DurationMs 60
@@ -339,7 +337,7 @@ function Invoke-CyberIntro {
     Write-Host ""
     Play-SubtleTone -Freq 1300 -DurationMs 70
 
-    Write-Host "  -- operational security rules: what NEVER to do ----------------" -ForegroundColor DarkGray
+    Write-Host "  Operational Security Rules: What NEVER To Do" -ForegroundColor Cyan
 
     $rules = @(
         @{

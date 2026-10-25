@@ -78,9 +78,7 @@ function Invoke-DeadManSwitch {
         return
     }
 
-    Write-Host "`n  ================================================================" -ForegroundColor Red
-    Write-Host "  [!] ARMING USB DEAD MAN'S SWITCH (BUSKILL HARDWARE DEFENSE)..." -ForegroundColor Red
-    Write-Host "  ================================================================" -ForegroundColor Red
+    Write-Host "`n  [!] Arming USB Dead Man's Switch (Buskill hardware defense)..." -ForegroundColor Red
     Write-Host "  threat model: Anti-Seizure / Glen Park Library Snatch Countermeasure" -ForegroundColor DarkGray
 
     $usbs = Get-ConnectedUsbDrives

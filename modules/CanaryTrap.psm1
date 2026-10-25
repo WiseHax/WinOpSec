@@ -88,7 +88,7 @@ function Deploy-CanaryTraps {
     $deployed = 0
 
     if (-not $Silent) {
-        Write-Host "`n  -- deploying canary honeytoken breach traps -------------------" -ForegroundColor DarkGray
+        Write-Host "`n  deploying canary honeytoken breach traps..." -ForegroundColor Cyan
         Write-Host "  planting realistic decoy secrets in Desktop, Documents, Downloads..." -ForegroundColor Gray
     }
 
@@ -231,7 +231,7 @@ function Purge-CanaryTraps {
     [CmdletBinding()]
     param()
 
-    Write-Host "`n  -- purging canary honeytoken traps ----------------------------" -ForegroundColor DarkGray
+    Write-Host "`n  purging canary honeytoken traps..." -ForegroundColor Cyan
     $baits = Get-CanaryBaitPaths
     $purged = 0
 

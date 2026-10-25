@@ -1,6 +1,6 @@
-# winopsec v5.0 (Apex Edition)
+# WinOpSec
 
-Cross-platform operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, real-time public sentry & intrusion tripwire, kernel memory protection, honeytoken canary traps, and state-level anti-forensics utility.
+Operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, real-time public sentry & intrusion tripwire, kernel memory protection, honeytoken canary traps, and anti-forensics suite.
 
 > For system flowcharts, signal routing, and architectural schematics, see [Architecture Blueprint](file:///c:/Users/Wise/Desktop/WinOpSec/docs/BLUEPRINT.md).
 
