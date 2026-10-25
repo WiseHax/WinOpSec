@@ -13,10 +13,11 @@ Cross-platform operations security, Mullvad VPN partner integration, browser ant
 
 ### Interactive REPL
 ```sh
-# Windows
+# Windows (Auto-elevates to Administrator via UAC)
 .\run.bat
-# or any OS
-powershell ./WinOpSec.ps1
+
+# or via PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass ./WinOpSec.ps1
 ```
 
 Commands inside `winopsec` console (organized into 5 Operational Pillars):
@@ -28,7 +29,8 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
   - `[3] Secure Ephemeral Browsing` — Anti-WebRTC leak + ephemeral private browser session
   - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
   - `[5] Full Security Posture Audit` — Comprehensive 47-point benchmark scan
-- `intro` / `tour` — launches animated cyber onboarding boot sequence with voice briefing & script-kiddie operator walkthrough
+- `intro` / `tour` — launches animated Apple-style onboarding boot sequence with human neural voice narration (`en-US-ChristopherNeural`), teaching the 6 cardinal OpSec rules and calling out script-kiddie blunders
+- `test-voice` — instantaneous hardware audio diagnostic to verify speaker output and audio pipeline
 - `guide <command>` — displays in-depth plain-language explanation of any feature (e.g. `guide sentry`, `guide chameleon`, `guide pca`)
 
 ### Direct Pillar Commands
@@ -92,5 +94,15 @@ powershell ./WinOpSec.ps1 -SpoofMac
 powershell ./WinOpSec.ps1 -ScanSecrets
 powershell ./WinOpSec.ps1 -Panic
 powershell ./WinOpSec.ps1 -Restore
+powershell ./WinOpSec.ps1 -Intro
+powershell ./WinOpSec.ps1 -TestVoice
 powershell ./WinOpSec.ps1 -Help
 ```
+
+## Forensic Integrity & Audio Architecture
+
+All bundled neural audio clips in `assets/audio/` are forensically sanitized:
+- **Zero Metadata:** Stripped of ID3v1, ID3v2, software encoder stamps, and author identifiers.
+- **Normalized Timestamps:** Static timestamps (`2025-01-01 08:00:00 UTC`) across all files.
+- **ADS Stripped:** Zero NTFS `Zone.Identifier` alternate data streams.
+- **Graceful Fallback:** If audio assets are omitted or removed, WinOpSec dynamically falls back to the native Windows SAPI voice synthesizer without throwing errors.
