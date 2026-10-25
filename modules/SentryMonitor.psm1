@@ -160,30 +160,55 @@ function Test-PortScanActivity {
     $alerts = @()
     $synCount = 0
     $probeSources = [System.Collections.Generic.List[string]]::new()
+    $portsByRemote = @{}
 
     try {
         $conns = Get-NetTCPConnection -ErrorAction SilentlyContinue
         if ($conns) {
             foreach ($c in $conns) {
+                # Half-open SYN scan probe
                 if ($c.State -eq "SynReceived") {
                     $synCount++
                     if ($c.RemoteAddress -and $c.RemoteAddress -ne "0.0.0.0") {
                         $probeSources.Add("$($c.RemoteAddress):$($c.LocalPort)")
                     }
                 }
-                if ($c.LocalPort -in @(135, 137, 138, 139, 445, 3389, 5985) -and $c.State -in @("Established", "SynReceived")) {
+
+                # Inbound probe to sensitive attack ports
+                if ($c.LocalPort -in @(135, 137, 138, 139, 445, 3389, 5985) -and $c.State -in @("Established", "SynReceived", "TimeWait")) {
                     if ($c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1" -and $c.RemoteAddress -ne "0.0.0.0") {
                         $alerts += [PSCustomObject]@{
                             Severity = "HIGH"
-                            Type     = "SENSITIVE_PORT_INBOUND_HIT"
-                            Target   = "$($c.LocalPort) ($($c.RemoteAddress))"
-                            Detail   = "Inbound active TCP socket on port $($c.LocalPort) from $($c.RemoteAddress)."
+                            Type     = "SENSITIVE_PORT_PROBE"
+                            Target   = "Port $($c.LocalPort)"
+                            Detail   = "Inbound TCP connection on port $($c.LocalPort) from $($c.RemoteAddress)."
                         }
                     }
+                }
+
+                # Track multi-port scanning from any single remote address
+                if ($c.RemoteAddress -and $c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1" -and $c.RemoteAddress -ne "0.0.0.0") {
+                    if (-not $portsByRemote.ContainsKey($c.RemoteAddress)) {
+                        $portsByRemote[$c.RemoteAddress] = [System.Collections.Generic.HashSet[int]]::new()
+                    }
+                    $portsByRemote[$c.RemoteAddress].Add($c.LocalPort) | Out-Null
                 }
             }
         }
     } catch {}
+
+    # Check for multi-port sweep from single host
+    foreach ($remIp in $portsByRemote.Keys) {
+        if ($portsByRemote[$remIp].Count -ge 3) {
+            $portsList = ($portsByRemote[$remIp] | Select-Object -First 5) -join ', '
+            $alerts += [PSCustomObject]@{
+                Severity = "HIGH"
+                Type     = "PORT_SCAN_SWEEP"
+                Target   = "$remIp"
+                Detail   = "Port scan sweep from $remIp targeting $($portsByRemote[$remIp].Count) ports ($portsList...)."
+            }
+        }
+    }
 
     if ($alerts.Count -eq 0 -and $synCount -eq 0) {
         try {
@@ -195,14 +220,15 @@ function Test-PortScanActivity {
                         $probeSources.Add("$($Matches[2]) -> port $($Matches[1])")
                     }
                 }
-                if ($line -match '^\s*TCP\s+\S+:(135|139|445|3389|5985)\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+\s+ESTABLISHED') {
+                if ($line -match '^\s*TCP\s+\S+:(135|139|445|3389|5985)\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+\s+(ESTABLISHED|SYN_RECEIVED|TIME_WAIT)') {
                     $remIp = $Matches[2]
+                    $port = $Matches[1]
                     if ($remIp -notmatch "^127\.") {
                         $alerts += [PSCustomObject]@{
                             Severity = "HIGH"
-                            Type     = "SENSITIVE_PORT_INBOUND_HIT"
-                            Target   = "$remIp"
-                            Detail   = "Established inbound connection on sensitive port from $remIp."
+                            Type     = "SENSITIVE_PORT_PROBE"
+                            Target   = "Port $port"
+                            Detail   = "Inbound TCP probe on port $port from $remIp."
                         }
                     }
                 }
@@ -214,7 +240,7 @@ function Test-PortScanActivity {
         $alerts += [PSCustomObject]@{
             Severity = "HIGH"
             Type     = "SYN_PORT_SCAN_DETECTED"
-            Target   = "$synCount half-open probes"
+            Target   = "$synCount probes"
             Detail   = "Half-open SYN scan detected ($synCount probes: $($probeSources -join ', '))."
         }
     }
@@ -628,10 +654,12 @@ function Invoke-SentryMonitor {
         if (Get-Command Test-CanaryTrip -ErrorAction SilentlyContinue) {
             $trippedCanaries = Test-CanaryTrip
             foreach ($tc in $trippedCanaries) {
+                $folder = Split-Path (Split-Path $tc.Path -Parent) -Leaf
                 $allThreats += [PSCustomObject]@{
                     Type     = "Honeytoken Breach"
                     Severity = "CRITICAL"
-                    Detail   = "Canary decoy accessed: $($tc.Trap) ($($tc.Path))"
+                    Target   = $tc.Trap
+                    Detail   = "Canary decoy opened: $($tc.Trap) in [$folder]"
                 }
             }
         }
@@ -660,7 +688,7 @@ function Invoke-SentryMonitor {
             Write-Host "`n  [$timestamp] [ALERT] $($allThreats.Count) DEFENSIVE TRIPWIRE(S) ACTIVE ($($newThreats.Count) new)!" -ForegroundColor Red
             foreach ($t in $newThreats) {
                 $color = if ($t.Severity -eq "CRITICAL") { "Red" } else { "Yellow" }
-                Write-Host ("  [{0,-8}] {1,-28} | {2}" -f $t.Severity, $t.Type, $t.Detail) -ForegroundColor $color
+                Write-Host ("  [{0,-8}] {1,-20} | {2}" -f $t.Severity, $t.Type, $t.Detail) -ForegroundColor $color
             }
 
             if ($AudioAlert -or $AutoPanic) {
