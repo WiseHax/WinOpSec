@@ -626,12 +626,19 @@ function Invoke-SentryMonitor {
             return $allThreats
         }
 
-        if ([Console]::KeyAvailable) {
-            $key = [Console]::ReadKey($true)
-            if ($key.KeyChar -eq 'q' -or $key.Key -eq [ConsoleKey]::Escape) {
-                Write-Host "`n`n  [+] Sentry disarmed by operator." -ForegroundColor Gray
-                break
+        $keyPressed = $false
+        try {
+            if ([Console]::KeyAvailable) {
+                $key = [Console]::ReadKey($true)
+                if ($key.KeyChar -eq 'q' -or $key.Key -eq [ConsoleKey]::Escape) {
+                    $keyPressed = $true
+                }
             }
+        } catch {}
+
+        if ($keyPressed) {
+            Write-Host "`n`n  [+] Sentry disarmed by operator." -ForegroundColor Gray
+            break
         }
 
         Start-Sleep -Seconds $IntervalSec

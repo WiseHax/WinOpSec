@@ -95,6 +95,7 @@ function Stop-OpSecAudio {
         if ($script:AudioPlayer) {
             $script:AudioPlayer.Stop()
             $script:AudioPlayer.Close()
+            $script:AudioPlayer = $null
         }
     } catch {}
     Stop-Narration

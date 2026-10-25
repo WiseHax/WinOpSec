@@ -934,6 +934,9 @@ public class WinOpSecMemoryPurge {
                     }
                 }
             } catch {}
+            finally {
+                try { p.Dispose(); } catch {}
+            }
         }
         return trimmed;
     }
@@ -957,20 +960,26 @@ public class WinOpSecMemoryPurge {
 function Invoke-TimestampJitter {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateNotNullOrEmpty()]
         [string]$TargetPath,
+
+        [ValidateRange(1, 365)]
         [int]$DaysMin = 7,
+
+        [ValidateRange(1, 365)]
         [int]$DaysMax = 35
     )
 
-    if (-not (Test-Path $TargetPath)) {
-        Write-Host "  [!] path not found: $TargetPath" -ForegroundColor DarkGray
+    $cleanPath = $TargetPath.Trim().Trim('"').Trim("'")
+    if (-not (Test-Path -LiteralPath $cleanPath)) {
+        Write-Host "  [!] path not found: $cleanPath" -ForegroundColor DarkGray
         return
     }
 
-    $items = @(Get-Item -LiteralPath $TargetPath)
-    if (Test-Path -Path $TargetPath -PathType Container) {
-        $items += @(Get-ChildItem -LiteralPath $TargetPath -Recurse -Force -ErrorAction SilentlyContinue)
+    $items = @(Get-Item -LiteralPath $cleanPath -Force -ErrorAction SilentlyContinue)
+    if (Test-Path -LiteralPath $cleanPath -PathType Container) {
+        $items += @(Get-ChildItem -LiteralPath $cleanPath -Recurse -Force -ErrorAction SilentlyContinue)
     }
 
     $now = Get-Date

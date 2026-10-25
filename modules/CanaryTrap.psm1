@@ -1,22 +1,69 @@
 # CanaryTrap.psm1 - High-Value Honeytoken Breach Tripwire
 # WinOpSec Defensive Suite
 
+function Test-SafePath {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    try {
+        return (Test-Path -LiteralPath $Path -ErrorAction Stop)
+    } catch {
+        return $false
+    }
+}
+
+function Get-KnownUserDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FolderName,
+        [System.Environment+SpecialFolder]$SpecialFolder
+    )
+
+    $resolved = ""
+    try {
+        if ($SpecialFolder) {
+            $resolved = [Environment]::GetFolderPath($SpecialFolder)
+        }
+    } catch {}
+
+    if ([string]::IsNullOrWhiteSpace($resolved) -or -not (Test-SafePath $resolved)) {
+        $base = if ($env:USERPROFILE -and (Test-SafePath $env:USERPROFILE)) {
+            $env:USERPROFILE
+        } elseif ($HOME -and (Test-SafePath $HOME)) {
+            $HOME
+        } else {
+            "C:\Users\$env:USERNAME"
+        }
+
+        # Check OneDrive folder redirection first
+        $oneDrivePath = Join-Path $base "OneDrive\$FolderName"
+        if (Test-SafePath $oneDrivePath) {
+            $resolved = $oneDrivePath
+        } else {
+            $resolved = Join-Path $base $FolderName
+        }
+    }
+
+    return $resolved
+}
+
 function Get-CanaryBaitPaths {
-    $uHome = if ($HOME) { $HOME } elseif ($env:USERPROFILE) { $env:USERPROFILE } else { [Environment]::GetFolderPath("UserProfile") }
-    
+    $desktopDir = Get-KnownUserDirectory -FolderName "Desktop" -SpecialFolder ([System.Environment+SpecialFolder]::Desktop)
+    $docsDir    = Get-KnownUserDirectory -FolderName "Documents" -SpecialFolder ([System.Environment+SpecialFolder]::Personal)
+    $dlDir      = Get-KnownUserDirectory -FolderName "Downloads"
+
     return @(
         @{
-            Path        = Join-Path $uHome "Desktop\aws_vault_backup.env"
+            Path        = Join-Path $desktopDir "aws_vault_backup.env"
             Description = "Cloud Credentials Honeytoken"
             Content     = "# AWS PRODUCTION CREDENTIALS BACKUP`nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE`nAWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`nAWS_DEFAULT_REGION=us-east-1`n"
         },
         @{
-            Path        = Join-Path $uHome "Documents\wallet_recovery_phrase.txt"
+            Path        = Join-Path $docsDir "wallet_recovery_phrase.txt"
             Description = "Cryptographic Seed Honeytoken"
             Content     = "RECOVERY SEED PHRASE - KEEP OFFLINE`n1. abandon  2. ability  3. able  4. about`n5. above    6. absent   7. absorb 8. abstract`n9. absurd   10. abuse   11. access 12. accident`n"
         },
         @{
-            Path        = Join-Path $uHome "Downloads\finance_passwords.kdbx"
+            Path        = Join-Path $dlDir "finance_passwords.kdbx"
             Description = "Encrypted Vault Honeytoken"
             # Standard KeePass KDBX4 magic bytes: 0x03 0xD9 0xA2 0x9A, 0x67 0xFB 0x4B 0xB5
             Bytes       = [byte[]]@(0x03, 0xD9, 0xA2, 0x9A, 0x67, 0xFB, 0x4B, 0xB5, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00)
@@ -76,12 +123,7 @@ function Audit-CanaryTraps {
 
     foreach ($b in $baits) {
         $p = $b.Path
-        $exists = $false
-        try {
-            $exists = Test-Path -LiteralPath $p -ErrorAction Stop
-        } catch {
-            $exists = $false
-        }
+        $exists = Test-SafePath $p
         
         $state = "MISSING"
         $detail = "Trap not deployed"

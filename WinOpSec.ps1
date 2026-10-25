@@ -236,84 +236,146 @@ function Show-Usage {
 }
 
 function Show-TacticalHud {
+    [CmdletBinding()]
+    param(
+        [switch]$NonInteractive
+    )
+
+    $hudLoop = $true
+    while ($hudLoop) {
+        Clear-Host
+        $privTag = if ($IsElevated) { "ELEVATED (ROOT/ADMIN)" } else { "UNPRIVILEGED (USER)" }
+        $privColor = if ($IsElevated) { "Green" } else { "Yellow" }
+        
+        $mullvadRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }
+        $vpnStatus = if ($mullvadRoute) { "LOCKED (MULLVAD ENCRYPTED)" } else { "EXPOSED (RAW/UNENCRYPTED)" }
+        $vpnColor = if ($mullvadRoute) { "Green" } else { "Red" }
+
+        $canaryArmed = 0
+        $canaryTripped = 0
+        if (Get-Command Audit-CanaryTraps -ErrorAction SilentlyContinue) {
+            $cTraps = Audit-CanaryTraps
+            $canaryArmed = @($cTraps | Where-Object { $_.State -eq "ARMED" }).Count
+            $canaryTripped = @($cTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
+        }
+        $canaryTag = if ($canaryTripped -gt 0) { "TRIPPED (BREACH ALERT!)" } elseif ($canaryArmed -gt 0) { "ARMED ($canaryArmed TRAPS)" } else { "NOT DEPLOYED" }
+        $canaryColor = if ($canaryTripped -gt 0) { "Red" } elseif ($canaryArmed -gt 0) { "Green" } else { "DarkGray" }
+
+        $osInfo = try { Get-CimInstance Win32_OperatingSystem -ErrorAction Stop } catch { $null }
+        if (-not $osInfo) {
+            $osInfo = try { Get-WmiObject Win32_OperatingSystem -ErrorAction Stop } catch { $null }
+        }
+        $freeRamMb = if ($osInfo) { [math]::Round($osInfo.FreePhysicalMemory / 1024, 0) } else { 0 }
+        $totalRamMb = if ($osInfo) { [math]::Round($osInfo.TotalVisibleMemorySize / 1024, 0) } else { 0 }
+
+        Write-Host ""
+        Write-Host "  ============================== WINOPSEC v5.0 APEX HUD ==============================" -ForegroundColor DarkGray
+        Write-Host "  host : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$HostOS [$Arch]  " -ForegroundColor Gray -NoNewline
+        Write-Host "priv : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$privTag  " -ForegroundColor $privColor -NoNewline
+        Write-Host "ram : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$freeRamMb MB free / $totalRamMb MB" -ForegroundColor Gray
+
+        Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
+
+        Write-Host "  [SENTRY PERIMETER (8 VECTORS)]            [TUNNEL & KERNEL GUARDS]" -ForegroundColor White
+        Write-Host "  [PASS] Gateway ARP Integrity              " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Tunnel     : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$vpnStatus" -ForegroundColor $vpnColor
+
+        Write-Host "  [PASS] SYN Port Scan Guard (445/135)      " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Killswitch : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "STRICT (WFP block-all)" -ForegroundColor Green
+
+        Write-Host "  [PASS] Hardware USB Tripwire (BadUSB)     " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Crypt-PQC  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Kyber-1024 Quantum-Safe" -ForegroundColor Green
+
+        Write-Host "  [PASS] Rogue DNS Resolver Lock            " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Traffic-AI : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Maybenot DAITA (Anti-AI)" -ForegroundColor Green
+
+        Write-Host "  [PASS] Microphone & Cam Sensor Trap       " -ForegroundColor DarkGray -NoNewline
+        Write-Host "LSASS Mode : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "RunAsPPL (Protected Process Light)" -ForegroundColor Green
+
+        Write-Host "  [PASS] Evil Twin AP / BSSID Guard         " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Kernel RAM : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "DisablePagingExecutive (RAM-Locked)" -ForegroundColor Green
+
+        Write-Host "  [PASS] Active Reverse Shell Trap          " -ForegroundColor DarkGray -NoNewline
+        Write-Host "DMA Guard  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Anti-PCILeech / Thunderbolt Locked" -ForegroundColor Green
+
+        Write-Host "  [CANARY] Honeytoken Breach Traps: " -ForegroundColor DarkGray -NoNewline
+        Write-Host ("{0,-9} " -f $canaryTag) -ForegroundColor $canaryColor -NoNewline
+        Write-Host "UEFI WPBT  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Firmware ROM Execution Disabled" -ForegroundColor Green
+
+        Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
+        Write-Host "  SECURITY POSTURE : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "[===================================> ] 94.2% (49/52 PASS)" -ForegroundColor Green
+        Write-Host "  COUNTERMEASURES  : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "Auto-Panic Armed (Instant Route Sever & Workstation Lock)" -ForegroundColor Red
+        Write-Host "  ====================================================================================" -ForegroundColor DarkGray
+        Write-Host "  [1] Cafe Mode   [2] Host Lockdown   [3] Canary Traps   [4] Wipe RAM   [R] Refresh   [0] Exit HUD" -ForegroundColor Gray
+        Write-Host ""
+
+        if ($NonInteractive) {
+            break
+        }
+
+        Write-Host "hud > " -ForegroundColor Cyan -NoNewline
+        $hudInput = (Read-Host)
+        if ($null -eq $hudInput) { break }
+        $hudCmd = $hudInput.Trim().ToLower()
+
+        switch -Regex ($hudCmd) {
+            "^(1|cafe)$" {
+                Write-Host "`n  [*] executing cafe mode..." -ForegroundColor DarkGray
+                Invoke-MacSpoof
+                Invoke-MullvadPartner -Action "harden"
+                Invoke-SentryMonitor -AutoPanic:$true -SinglePass:$true
+                Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
+                [void](Read-Host)
+            }
+            "^(2|lockdown)$" {
+                Write-Host "`n  [*] applying complete host lockdown..." -ForegroundColor DarkGray
+                Save-OpSecState -Description "pre-lockdown" | Out-Null
+                Harden-All
+                Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
+                [void](Read-Host)
+            }
+            "^(3|canary)$" {
+                Write-Host ""
+                Deploy-CanaryTraps
+                Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
+                [void](Read-Host)
+            }
+            "^(4|ram|wipe|wipe-ram)$" {
+                Write-Host ""
+                Invoke-RamSanitize
+                Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
+                [void](Read-Host)
+            }
+            "^(r|refresh)$" {
+                continue
+            }
+            "^(0|q|quit|exit|back)$" {
+                $hudLoop = $false
+                break
+            }
+            default {
+                Write-Host "  unknown HUD action '$hudCmd'. (type 1-4, 'r' to refresh, '0' to exit)" -ForegroundColor DarkGray
+                Start-Sleep -Milliseconds 800
+            }
+        }
+    }
+
     Clear-Host
-    $privTag = if ($IsElevated) { "ELEVATED (ROOT/ADMIN)" } else { "UNPRIVILEGED (USER)" }
-    $privColor = if ($IsElevated) { "Green" } else { "Yellow" }
-    
-    $mullvadRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }
-    $vpnStatus = if ($mullvadRoute) { "LOCKED (MULLVAD ENCRYPTED)" } else { "EXPOSED (RAW/UNENCRYPTED)" }
-    $vpnColor = if ($mullvadRoute) { "Green" } else { "Red" }
-
-    $canaryArmed = 0
-    $canaryTripped = 0
-    if (Get-Command Audit-CanaryTraps -ErrorAction SilentlyContinue) {
-        $cTraps = Audit-CanaryTraps
-        $canaryArmed = @($cTraps | Where-Object { $_.State -eq "ARMED" }).Count
-        $canaryTripped = @($cTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
-    }
-    $canaryTag = if ($canaryTripped -gt 0) { "TRIPPED (BREACH ALERT!)" } elseif ($canaryArmed -gt 0) { "ARMED ($canaryArmed TRAPS)" } else { "NOT DEPLOYED" }
-    $canaryColor = if ($canaryTripped -gt 0) { "Red" } elseif ($canaryArmed -gt 0) { "Green" } else { "DarkGray" }
-
-    $osInfo = try { Get-CimInstance Win32_OperatingSystem -ErrorAction Stop } catch { $null }
-    if (-not $osInfo) {
-        $osInfo = try { Get-WmiObject Win32_OperatingSystem -ErrorAction Stop } catch { $null }
-    }
-    $freeRamMb = if ($osInfo) { [math]::Round($osInfo.FreePhysicalMemory / 1024, 0) } else { 0 }
-    $totalRamMb = if ($osInfo) { [math]::Round($osInfo.TotalVisibleMemorySize / 1024, 0) } else { 0 }
-
-    Write-Host ""
-    Write-Host "  ============================== WINOPSEC v5.0 APEX HUD ==============================" -ForegroundColor DarkGray
-    Write-Host "  host : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "$HostOS [$Arch]  " -ForegroundColor Gray -NoNewline
-    Write-Host "priv : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "$privTag  " -ForegroundColor $privColor -NoNewline
-    Write-Host "ram : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "$freeRamMb MB free / $totalRamMb MB" -ForegroundColor Gray
-
-    Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
-
-    Write-Host "  [SENTRY PERIMETER (8 VECTORS)]            [TUNNEL & KERNEL GUARDS]" -ForegroundColor White
-    Write-Host "  [PASS] Gateway ARP Integrity              " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Tunnel     : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "$vpnStatus" -ForegroundColor $vpnColor
-
-    Write-Host "  [PASS] SYN Port Scan Guard (445/135)      " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Killswitch : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "STRICT (WFP block-all)" -ForegroundColor Green
-
-    Write-Host "  [PASS] Hardware USB Tripwire (BadUSB)     " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Crypt-PQC  : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Kyber-1024 Quantum-Safe" -ForegroundColor Green
-
-    Write-Host "  [PASS] Rogue DNS Resolver Lock            " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Traffic-AI : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Maybenot DAITA (Anti-AI)" -ForegroundColor Green
-
-    Write-Host "  [PASS] Microphone & Cam Sensor Trap       " -ForegroundColor DarkGray -NoNewline
-    Write-Host "LSASS Mode : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "RunAsPPL (Protected Process Light)" -ForegroundColor Green
-
-    Write-Host "  [PASS] Evil Twin AP / BSSID Guard         " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Kernel RAM : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "DisablePagingExecutive (RAM-Locked)" -ForegroundColor Green
-
-    Write-Host "  [PASS] Active Reverse Shell Trap          " -ForegroundColor DarkGray -NoNewline
-    Write-Host "DMA Guard  : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Anti-PCILeech / Thunderbolt Locked" -ForegroundColor Green
-
-    Write-Host "  [CANARY] Honeytoken Breach Traps: " -ForegroundColor DarkGray -NoNewline
-    Write-Host ("{0,-9} " -f $canaryTag) -ForegroundColor $canaryColor -NoNewline
-    Write-Host "UEFI WPBT  : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Firmware ROM Execution Disabled" -ForegroundColor Green
-
-    Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  SECURITY POSTURE : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "[===================================> ] 94.2% (49/52 PASS)" -ForegroundColor Green
-    Write-Host "  COUNTERMEASURES  : " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Auto-Panic Armed (Instant Route Sever & Workstation Lock)" -ForegroundColor Red
-    Write-Host "  ====================================================================================" -ForegroundColor DarkGray
-    Write-Host "  [1] Cafe Mode    [2] Lockdown    [3] Canary Traps    [4] Wipe RAM    [0] Back to REPL" -ForegroundColor Gray
-    Write-Host ""
+    Write-Header
+    Show-Menu
 }
 
 function Show-Menu {
@@ -576,14 +638,23 @@ Clear-Host
 Write-Header
 Show-Menu
 
-while ($true) {
+$sessionActive = $true
+while ($sessionActive) {
     $privTag = if ($IsElevated) { "admin" } else { "user" }
     $vpnTag  = if (Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }) { "vpn:mullvad" } else { "vpn:off" }
     Write-Host "winopsec " -ForegroundColor DarkGray -NoNewline
     Write-Host "[$privTag | $vpnTag] " -ForegroundColor Cyan -NoNewline
     Write-Host "> " -ForegroundColor White -NoNewline
-    $rawInput = (Read-Host).Trim()
+    $rawInput = Read-Host
+    if ($null -eq $rawInput) {
+        $sessionActive = $false
+        break
+    }
+    $rawInput = $rawInput.Trim()
     $inputCmd = $rawInput.ToLower()
+    if ($inputCmd -eq "") {
+        continue
+    }
 
     if ($inputCmd -match "^scrub\s+(.+)$") {
         $target = $rawInput.Substring(5).Trim().Trim('"').Trim("'")
@@ -852,7 +923,7 @@ while ($true) {
         "^(help|\?)\s+(.+)$" {
             Show-CommandGuide -Topic $Matches[2]
         }
-        "^(\?|help|menu)$" {
+        "^(\?|help|menu|0)$" {
             Write-Host ""
             Show-Menu
         }
@@ -861,14 +932,15 @@ while ($true) {
             Write-Header
             Show-Menu
         }
-        "^(0|q|quit|exit)$" {
+        "^(q|quit|exit)$" {
+            Write-Host "`n  [+] operational session terminated. stay secure.`n" -ForegroundColor DarkGray
+            $sessionActive = $false
             break
-        }
-        "^$" {
-            continue
         }
         default {
             Write-Host "  unknown command '$inputCmd' (type 'help' for list, 'q' to quit)" -ForegroundColor DarkGray
         }
     }
 }
+
+return
