@@ -29,8 +29,10 @@ param (
     [switch]$Panic,
     [switch]$Restore,
     [switch]$Hud,
+    [switch]$NonInteractive,
     [switch]$WipeRam,
     [string]$Jitter,
+    [switch]$Vanish,
     [switch]$Intro,
     [switch]$TestVoice,
     [switch]$Help
@@ -39,7 +41,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "IntroTour.psm1")) {
+foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "UsbOpSec.psm1", "IntroTour.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -62,6 +64,10 @@ function Write-Header {
     $privTag = if ($IsElevated) { "elevated (root/admin)" } else { "unprivileged (user)" }
     $privColor = if ($IsElevated) { "Green" } else { "Yellow" }
 
+    $drvCtx = if (Get-Command Get-RunningDriveContext -ErrorAction SilentlyContinue) { Get-RunningDriveContext } else { $null }
+    $drvTag = if ($drvCtx) { $drvCtx.Label } else { "HOST" }
+    $drvColor = if ($drvCtx -and $drvCtx.IsUsb) { "Green" } else { "DarkGray" }
+
     Write-Host ""
     Write-Host "  winopsec " -ForegroundColor White -NoNewline
     Write-Host "v5.0  //  apex opsec, defensive tripwire & forensic deception platform" -ForegroundColor DarkGray
@@ -69,6 +75,8 @@ function Write-Header {
     Write-Host "$HostOS [$Arch]" -ForegroundColor Gray
     Write-Host "  priv : " -ForegroundColor DarkGray -NoNewline
     Write-Host "$privTag" -ForegroundColor $privColor
+    Write-Host "  drive: " -ForegroundColor DarkGray -NoNewline
+    Write-Host "$drvTag" -ForegroundColor $drvColor
     Write-Host ""
 }
 
@@ -268,6 +276,10 @@ function Show-TacticalHud {
         $freeRamMb = if ($osInfo) { [math]::Round($osInfo.FreePhysicalMemory / 1024, 0) } else { 0 }
         $totalRamMb = if ($osInfo) { [math]::Round($osInfo.TotalVisibleMemorySize / 1024, 0) } else { 0 }
 
+        $drvCtx = if (Get-Command Get-RunningDriveContext -ErrorAction SilentlyContinue) { Get-RunningDriveContext } else { $null }
+        $drvTag = if ($drvCtx) { $drvCtx.Label } else { "HOST" }
+        $drvColor = if ($drvCtx -and $drvCtx.IsUsb) { "Green" } else { "DarkGray" }
+
         Write-Host ""
         Write-Host "  ============================== WINOPSEC v5.0 APEX HUD ==============================" -ForegroundColor DarkGray
         Write-Host "  host : " -ForegroundColor DarkGray -NoNewline
@@ -276,6 +288,8 @@ function Show-TacticalHud {
         Write-Host "$privTag  " -ForegroundColor $privColor -NoNewline
         Write-Host "ram : " -ForegroundColor DarkGray -NoNewline
         Write-Host "$freeRamMb MB free / $totalRamMb MB" -ForegroundColor Gray
+        Write-Host "  drive: " -ForegroundColor DarkGray -NoNewline
+        Write-Host "$drvTag" -ForegroundColor $drvColor
 
         Write-Host "  ------------------------------------------------------------------------------------" -ForegroundColor DarkGray
 
@@ -319,7 +333,7 @@ function Show-TacticalHud {
         Write-Host "  COUNTERMEASURES  : " -ForegroundColor DarkGray -NoNewline
         Write-Host "Auto-Panic Armed (Instant Route Sever & Workstation Lock)" -ForegroundColor Red
         Write-Host "  ====================================================================================" -ForegroundColor DarkGray
-        Write-Host "  [1] Cafe Mode   [2] Host Lockdown   [3] Canary Traps   [4] Wipe RAM   [R] Refresh   [0] Exit HUD" -ForegroundColor Gray
+        Write-Host "  [1] Cafe   [2] Lockdown   [3] Canary   [4] Wipe RAM   [5] USB Deploy   [R] Refresh   [0] Exit HUD" -ForegroundColor Gray
         Write-Host ""
 
         if ($NonInteractive) {
@@ -356,6 +370,12 @@ function Show-TacticalHud {
             "^(4|ram|wipe|wipe-ram)$" {
                 Write-Host ""
                 Invoke-RamSanitize
+                Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
+                [void](Read-Host)
+            }
+            "^(5|usb|deploy)$" {
+                Write-Host ""
+                Deploy-UsbOpSec
                 Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
                 [void](Read-Host)
             }
@@ -416,6 +436,14 @@ function Show-Menu {
     Write-Host "      chameleon       - plant benign civilian decoys (defeats 'too clean machine')" -ForegroundColor Gray
     Write-Host "      chameleon -purge - remove synthetic decoy files" -ForegroundColor DarkGray
 
+    Write-Host "`n  [6] usb hardware & stealth deployment" -ForegroundColor White
+    Write-Host "      usb / usb list  - list connected removable drives & bitlocker status" -ForegroundColor Gray
+    Write-Host "      usb deploy      - clone portable winopsec to usb with autorun immunization" -ForegroundColor DarkGray
+    Write-Host "      usb shield on   - lock all usb ports to read-only (anti-data-exfiltration)" -ForegroundColor DarkGray
+    Write-Host "      usb shield off  - restore normal read/write to usb ports" -ForegroundColor DarkGray
+    Write-Host "      deadman         - usb buskill lanyard trigger (panic on physical pull)" -ForegroundColor DarkGray
+    Write-Host "      vanish / burn   - emergency self-destruct (DoD shred winopsec, TRIM & poweroff)" -ForegroundColor Red
+
     Write-Host "`n  [!] shortcuts & navigation" -ForegroundColor White
     Write-Host "      quick           - 1-click scenario wizard (cafe, lockdown, clean)" -ForegroundColor Green
     Write-Host "      intro           - play animated audio briefing & walkthrough" -ForegroundColor Gray
@@ -445,7 +473,7 @@ function Invoke-GuidedWizard {
     Write-Host "      -> Purge execution logs (PCA, ShellBags) and plant civilian decoy files." -ForegroundColor DarkGray
 
     Write-Host "  [5] Full Security Posture Audit" -ForegroundColor White
-    Write-Host "      -> Scan all 47 defensive benchmarks and calculate score." -ForegroundColor DarkGray
+    Write-Host "      -> Scan all 53 defensive benchmarks and calculate score." -ForegroundColor DarkGray
 
     Write-Host "  [0] Back / Cancel" -ForegroundColor DarkGray
     Write-Host ""
@@ -587,16 +615,41 @@ function Show-CommandGuide {
             Write-Host "    panic            -> Execute immediate screen lock and network severance" -ForegroundColor Yellow
             Write-Host "    panic -poweroff  -> Emergency hard shutdown with zero disk traces" -ForegroundColor Red
         }
+        "^(vanish|burn)$" {
+            Write-Host "  === GHOST SELF-DESTRUCT (VANISH PROTOCOL) GUIDE ===" -ForegroundColor Red
+            Write-Host "  Purpose: Irreversible elimination of WinOpSec, traces, and forensic anchors." -ForegroundColor White
+            Write-Host "  Actions taken:" -ForegroundColor Gray
+            Write-Host "    - Terminates browsers, messengers, and password vaults" -ForegroundColor DarkGray
+            Write-Host "    - Cryptographically shreds all WinOpSec modules, scripts, backups, and audio" -ForegroundColor DarkGray
+            Write-Host "    - Deletes the WinOpSec directory via detached process" -ForegroundColor DarkGray
+            Write-Host "    - Wipes USN Deletion Journal and executes SSD TRIM" -ForegroundColor DarkGray
+            Write-Host "    - Triggers immediate emergency hard power-off" -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    vanish           -> Prompts for 'NUKE' confirmation before executing" -ForegroundColor Red
+        }
+        "^(usb|usb-shield|usb-deploy)$" {
+            Write-Host "  === USB-DRIVEN TACTICAL OPERATIONS GUIDE ===" -ForegroundColor DarkGray
+            Write-Host "  Purpose: Run WinOpSec completely air-gapped from USB with zero host footprint." -ForegroundColor White
+            Write-Host "  Key Capabilities:" -ForegroundColor Gray
+            Write-Host "    - 'usb list'       -> Displays connected USB flash drives and BitLocker status" -ForegroundColor DarkGray
+            Write-Host "    - 'usb deploy'     -> Clones WinOpSec to USB with root autorun.inf immunization" -ForegroundColor DarkGray
+            Write-Host "    - 'usb shield on'  -> Locks USB ports to read-only (prevents data exfiltration)" -ForegroundColor DarkGray
+            Write-Host "    - 'deadman'        -> USB buskill lanyard (emergency panic on physical snatch)" -ForegroundColor DarkGray
+            Write-Host "`n  Operational Advantage:" -ForegroundColor White
+            Write-Host "    Running from USB leaves ZERO WinOpSec source code or tools on the host SSD." -ForegroundColor Yellow
+        }
         default {
             Write-Host "  === WINOPSEC OPERATIONAL GUIDE ===" -ForegroundColor DarkGray
             Write-Host "  Type 'guide <topic>' for in-depth details on any module:`n" -ForegroundColor DarkGray
             Write-Host "    guide sentry     -> Real-time Public Wi-Fi tripwire & BadUSB monitor" -ForegroundColor White
             Write-Host "    guide chameleon  -> Synthetic civilian camouflage & SANS anti-absence" -ForegroundColor White
             Write-Host "    guide deadman    -> USB BusKill lanyard anti-snatch hardware trigger" -ForegroundColor White
+            Write-Host "    guide usb        -> USB-driven portable deployment & hardware shield" -ForegroundColor White
             Write-Host "    guide pca        -> Windows 11 hidden program execution logs" -ForegroundColor White
             Write-Host "    guide shellbags  -> Explorer folder navigation histories" -ForegroundColor White
             Write-Host "    guide mullvad    -> Post-quantum, DAITA & WFP killswitch setup" -ForegroundColor White
             Write-Host "    guide panic      -> Emergency duress protocol" -ForegroundColor White
+            Write-Host "    guide vanish     -> Irreversible ghost self-destruct" -ForegroundColor Red
             Write-Host "`n  Tip: You can also type 'quick' for the guided 1-click scenario wizard!" -ForegroundColor Green
         }
     }
@@ -627,8 +680,9 @@ if ($Scrub)            { Write-Header; Invoke-MetadataScrub -TargetPath $Scrub; 
 if ($SpoofMac)      { Write-Header; Invoke-MacSpoof; exit }
 if ($ScanSecrets)   { Write-Header; Invoke-SecretsScan; exit }
 if ($Panic)         { Write-Header; Invoke-PanicProtocol; exit }
+if ($Vanish)        { Write-Header; Invoke-SelfDestruct; exit }
 if ($Restore)       { Write-Header; Restore-OpSecState | Out-Null; exit }
-if ($Hud)           { Show-TacticalHud; exit }
+if ($Hud)           { Show-TacticalHud -NonInteractive:$NonInteractive; exit }
 if ($WipeRam)       { Write-Header; Invoke-RamSanitize; exit }
 if ($Jitter)        { Write-Header; Invoke-TimestampJitter -TargetPath $Jitter; exit }
 if ($TestVoice)     { Test-VoiceOutput; exit }
@@ -912,6 +966,28 @@ while ($sessionActive) {
         "^(wipe-ram|ram)$" {
             Write-Host ""
             Invoke-RamSanitize
+            Write-Host ""
+        }
+        "^(vanish|burn|nuke-self)$" {
+            Write-Host ""
+            Invoke-SelfDestruct
+            Write-Host ""
+        }
+        "^usb(\s+list)?$" {
+            Write-Host ""
+            Show-UsbInventory
+            Write-Host ""
+        }
+        "^usb\s+deploy(\s+(\S+))?$" {
+            $tDrv = $Matches[2]
+            Write-Host ""
+            Deploy-UsbOpSec -TargetDrive $tDrv
+            Write-Host ""
+        }
+        "^usb\s+shield(\s+(on|off|status|enable|disable))?$" {
+            $act = if ($Matches[2]) { $Matches[2] } else { "status" }
+            Write-Host ""
+            Set-UsbWriteProtect -Action $act
             Write-Host ""
         }
         "^(quick|wizard|mode|modes)$" {

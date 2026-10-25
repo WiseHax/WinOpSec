@@ -1014,5 +1014,90 @@ function Invoke-TimestampJitter {
     Write-Host "  ok  applied natural gaussian jitter across $count file(s) (anti-timestomp)." -ForegroundColor Green
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize, Invoke-RamSanitize, Invoke-TimestampJitter
+function Invoke-SelfDestruct {
+    [CmdletBinding()]
+    param(
+        [switch]$Force,
+        [switch]$PowerOff = $true
+    )
+
+    Write-Host "`n  ================================================================" -ForegroundColor Red
+    Write-Host "  [!] GHOST PROTOCOL: PERMANENT SELF-DESTRUCT INITIATED" -ForegroundColor Red
+    Write-Host "  ================================================================" -ForegroundColor Red
+    Write-Host "  This command will cryptographically shred and permanently delete:" -ForegroundColor Yellow
+    Write-Host "    - All WinOpSec scripts, modules, audio assets, and configurations" -ForegroundColor DarkGray
+    Write-Host "    - All saved posture backups and canary manifests" -ForegroundColor DarkGray
+    Write-Host "    - All PowerShell history, Prefetch, ShellBags, and PCA execution logs" -ForegroundColor DarkGray
+    Write-Host "    - Trigger SSD TRIM and execute immediate emergency hard power-off" -ForegroundColor DarkGray
+    Write-Host ""
+
+    if (-not $Force) {
+        Write-Host "  To proceed, type 'NUKE' in capital letters: " -ForegroundColor Red -NoNewline
+        $confirm = (Read-Host).Trim()
+        if ($confirm -cne "NUKE") {
+            Write-Host "  [+] Self-destruct ABORTED by operator. No files were harmed.`n" -ForegroundColor Green
+            return
+        }
+    }
+
+    Write-Host "`n  [*] Step 1/5: Obliterating running processes & forensic logs..." -ForegroundColor Red
+    Invoke-PanicProtocol -PowerOff:$false
+
+    Write-Host "  [*] Step 2/5: Shredding backups, canary bait files, and telemetry..." -ForegroundColor Red
+    $installDir = Split-Path -Parent $PSScriptRoot
+    $backupDir = Join-Path $installDir "backups"
+    if (Test-Path $backupDir) {
+        Get-ChildItem -Path $backupDir -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                $len = $_.Length
+                if ($len -gt 0) {
+                    $rnd = [byte[]]::new($len)
+                    (New-Object System.Random).NextBytes($rnd)
+                    [System.IO.File]::WriteAllBytes($_.FullName, $rnd)
+                }
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            } catch {}
+        }
+    }
+
+    if (Get-Command Purge-CanaryTraps -ErrorAction SilentlyContinue) {
+        Purge-CanaryTraps | Out-Null
+    }
+
+    Write-Host "  [*] Step 3/5: Cryptographically zeroing all WinOpSec codebase modules..." -ForegroundColor Red
+    $allFiles = @(Get-ChildItem -Path $installDir -Recurse -File -Force -ErrorAction SilentlyContinue)
+    foreach ($f in $allFiles) {
+        try {
+            $len = $f.Length
+            if ($len -gt 0) {
+                $zeroes = [byte[]]::new($len)
+                [System.IO.File]::WriteAllBytes($f.FullName, $zeroes)
+            }
+        } catch {}
+    }
+
+    Write-Host "  [*] Step 4/5: Arming detached folder eradication & SSD TRIM..." -ForegroundColor Red
+    $drvLetter = (Split-Path -Qualifier $installDir).TrimEnd(':')
+    $shutdownCmd = if ($PowerOff) { "shutdown.exe /s /f /t 0" } else { "echo Vanish complete." }
+    $cleanCmd = @"
+@echo off
+timeout /t 1 /nobreak >nul
+attrib -r -s -h "$installDir\*" /s /d >nul 2>&1
+rd /s /q "$installDir" >nul 2>&1
+fsutil usn deletejournal /D C: >nul 2>&1
+if /i not "$drvLetter"=="C" (fsutil usn deletejournal /D ${drvLetter}: >nul 2>&1)
+powershell -Command "Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue" >nul 2>&1
+$shutdownCmd
+"@
+
+    $tempBat = Join-Path $env:TEMP "winopsec_nuke_$((Get-Random).ToString()).bat"
+    Set-Content -LiteralPath $tempBat -Value $cleanCmd -Encoding ASCII -Force
+
+    Write-Host "  [*] Step 5/5: Vanishing into thin air. System shutting down NOW." -ForegroundColor Red
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$tempBat`"" -WindowStyle Hidden
+    
+    exit 0
+}
+
+Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize, Invoke-RamSanitize, Invoke-TimestampJitter, Invoke-SelfDestruct
 

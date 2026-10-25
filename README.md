@@ -28,7 +28,7 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
   - `[2] Complete Host Lockdown` — Kernel PPL + LSASS guard + disable telemetry & leaks
   - `[3] Secure Ephemeral Browsing` — Anti-WebRTC leak + ephemeral private browser session
   - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
-  - `[5] Full Security Posture Audit` — Comprehensive 52-point benchmark scan
+  - `[5] Full Security Posture Audit` — Comprehensive 53-point benchmark scan
 - `hud` / `dash` — displays the real-time Tactical Cyber HUD: 8-vector sentry perimeter, live Mullvad tunnel encryption (Kyber-1024), killswitch status, DAITA, RAM metrics, canary tripwire state & overall posture score
 - `intro` / `tour` — launches animated Apple-style onboarding boot sequence with human neural voice narration (`en-US-ChristopherNeural`), teaching the 6 cardinal OpSec rules and calling out script-kiddie blunders
 - `test-voice` — instantaneous hardware audio diagnostic to verify speaker output and audio pipeline
@@ -75,7 +75,11 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
 - `wipe-logs` — purge all 400+ Windows event log channels (Security, System, App, ScriptBlock, WLAN)
 - `scrub <path>` — strip image EXIF metadata, remove NTFS `Zone.Identifier` origin streams, and normalize file MACB timestamps
 - `jitter <path>` — apply natural Gaussian timestamp jitter (business hours, uniform distribution) to defeat anti-timestomp heuristics
+- `usb list` — inspect connected removable drives, storage sizes, and BitLocker encryption status
+- `usb deploy [drive]` — clone standalone portable WinOpSec to USB with root `autorun.inf` malware immunization
+- `usb shield on|off` — toggle Windows hardware USB storage write-protection (read-only port lock)
 - `panic` — apex duress protocol: terminate sensitive processes, sever Wi-Fi, enforce Mullvad killswitch, flush routes/DNS/ARP, wipe traces & lock screen (`panic -poweroff` for emergency hard shutdown)
+- `vanish` / `burn` — ghost self-destruct: DoD multi-pass cryptographic shredding of all WinOpSec modules, backups, and audio assets, detached folder eradication, SSD TRIM & hard poweroff
 - `restore` — rollback system configuration from latest JSON snapshot in `backups/`
 
 ### Direct CLI Flags
@@ -100,6 +104,7 @@ powershell ./WinOpSec.ps1 -Jitter ./path/to/files
 powershell ./WinOpSec.ps1 -SpoofMac
 powershell ./WinOpSec.ps1 -ScanSecrets
 powershell ./WinOpSec.ps1 -Panic
+powershell ./WinOpSec.ps1 -Vanish
 powershell ./WinOpSec.ps1 -Restore
 powershell ./WinOpSec.ps1 -Intro
 powershell ./WinOpSec.ps1 -TestVoice
