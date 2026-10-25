@@ -157,11 +157,17 @@ function Audit-Traces {
         if ($regLogs.Count -gt 0) {
             $regLogSize = [math]::Round(($regLogs | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
         }
+        $orphanLogs = @(Get-ChildItem "$env:USERPROFILE", "$env:LOCALAPPDATA\Microsoft\Windows" -Filter "*.regtrans-ms" -Force -ErrorAction SilentlyContinue)
+        # Windows maintains exactly 2 active TMContainers per live hive (NTUSER + UsrClass = 4 active kernel containers)
+        $staleOrphans = @($orphanLogs | Where-Object { $_.Name -notmatch "TMContainer0000000000000000000[12]\.regtrans-ms$" })
+        $regStatus = if ($staleOrphans.Count -eq 0 -and $orphanLogs.Count -le 4) { "CLEAN" } else { "EXPOSED" }
+        $regDetail = if ($regStatus -eq "CLEAN") { "$regLogSize MB (active KTM flushed/clean)" } else { "$regLogSize MB ($($staleOrphans.Count) stale orphan journals)" }
+
         $results += [PSCustomObject]@{
             Artifact = "Registry Transaction Logs"
             Location = "NTUSER.DAT / UsrClass .LOG*"
-            Count    = "$regLogSize MB ($($regLogs.Count) journals)"
-            Status   = if ($regLogSize -eq 0) { "CLEAN" } else { "EXPOSED" }
+            Count    = $regDetail
+            Status   = $regStatus
         }
     } else {
         $uHome = Get-UserHome

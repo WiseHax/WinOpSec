@@ -71,6 +71,15 @@ function Get-CanaryBaitPaths {
     )
 }
 
+function Get-CanaryManifestPath {
+    $parent = Split-Path -Parent $PSScriptRoot
+    $backupDir = Join-Path $parent "backups"
+    if (-not (Test-SafePath $backupDir)) {
+        try { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null } catch {}
+    }
+    return (Join-Path $backupDir "canary_manifest.json")
+}
+
 function Deploy-CanaryTraps {
     [CmdletBinding()]
     param([switch]$Silent)
@@ -86,7 +95,7 @@ function Deploy-CanaryTraps {
     foreach ($b in $baits) {
         try {
             $dir = Split-Path $b.Path -Parent
-            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            if (-not (Test-SafePath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
             if ($b.Bytes) {
                 [System.IO.File]::WriteAllBytes($b.Path, $b.Bytes)
@@ -111,6 +120,27 @@ function Deploy-CanaryTraps {
         }
     }
 
+    # Record post-deployment baseline manifest so background scanners don't self-trip
+    $manifest = @{}
+    foreach ($b in $baits) {
+        if (Test-SafePath $b.Path) {
+            try {
+                $item = Get-Item -LiteralPath $b.Path -Force -ErrorAction Stop
+                $manifest[$b.Path] = @{
+                    AccessTime = $item.LastAccessTime.ToString("o")
+                    WriteTime  = $item.LastWriteTime.ToString("o")
+                    Length     = $item.Length
+                    DeployTime = (Get-Date).ToString("o")
+                }
+            } catch {}
+        }
+    }
+
+    try {
+        $mPath = Get-CanaryManifestPath
+        $manifest | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $mPath -Force
+    } catch {}
+
     if (-not $Silent) {
         Write-Host "  ok  $deployed honeytoken breach traps active. Sentry will monitor accesses.`n" -ForegroundColor Green
     }
@@ -120,6 +150,16 @@ function Deploy-CanaryTraps {
 function Audit-CanaryTraps {
     $baits = Get-CanaryBaitPaths
     $results = @()
+    $manifest = $null
+    $mPath = Get-CanaryManifestPath
+    if (Test-SafePath $mPath) {
+        try {
+            $rawJson = Get-Content -LiteralPath $mPath -Raw -ErrorAction SilentlyContinue
+            if ($rawJson) {
+                $manifest = $rawJson | ConvertFrom-Json
+            }
+        } catch {}
+    }
 
     foreach ($b in $baits) {
         $p = $b.Path
@@ -131,11 +171,31 @@ function Audit-CanaryTraps {
         if ($exists) {
             try {
                 $item = Get-Item -LiteralPath $p -Force -ErrorAction Stop
-                # Check if accessed in the last 60 minutes
-                $accessedRecently = ($item.LastAccessTime -gt (Get-Date).AddMinutes(-60)) -and ($item.LastAccessTime -gt $item.LastWriteTime.AddMinutes(5))
-                if ($accessedRecently) {
+                $isTripped = $false
+
+                if ($manifest -and $manifest.PSObject.Properties[$p]) {
+                    $entry = $manifest.PSObject.Properties[$p].Value
+                    $baseAccess = [DateTime]$entry.AccessTime
+                    $baseWrite  = [DateTime]$entry.WriteTime
+                    $baseLen    = [int64]$entry.Length
+
+                    # Trigger breach if accessed after deployment baseline + 3s buffer, or if modified/resized
+                    if ($item.LastAccessTime -gt $baseAccess.AddSeconds(3)) {
+                        $isTripped = $true
+                        $detail = "UNAUTHORIZED READ: Opened at $($item.LastAccessTime.ToString('HH:mm:ss'))"
+                    } elseif ($item.LastWriteTime -ne $baseWrite -or $item.Length -ne $baseLen) {
+                        $isTripped = $true
+                        $detail = "UNAUTHORIZED TAMPER: Modified at $($item.LastWriteTime.ToString('HH:mm:ss'))"
+                    }
+                } else {
+                    if (($item.LastAccessTime -gt (Get-Date).AddMinutes(-60)) -and ($item.LastAccessTime -gt $item.LastWriteTime.AddMinutes(5))) {
+                        $isTripped = $true
+                        $detail = "UNAUTHORIZED ACCESS: Accessed at $($item.LastAccessTime.ToString('HH:mm:ss'))"
+                    }
+                }
+
+                if ($isTripped) {
                     $state = "TRIPPED"
-                    $detail = "UNAUTHORIZED ACCESS: Accessed at $($item.LastAccessTime.ToString('HH:mm:ss'))"
                 } else {
                     $state = "ARMED"
                     $detail = "Active & untouched ($($item.Length) bytes)"
@@ -186,6 +246,11 @@ function Purge-CanaryTraps {
                 $purged++
             } catch {}
         }
+    }
+
+    $mPath = Get-CanaryManifestPath
+    if (Test-SafePath $mPath) {
+        try { Remove-Item -LiteralPath $mPath -Force -ErrorAction SilentlyContinue } catch {}
     }
 
     Write-Host "  ok  $purged canary traps removed.`n" -ForegroundColor Green
