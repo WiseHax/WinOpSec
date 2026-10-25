@@ -159,90 +159,88 @@ function Test-ArpPoisoning {
 function Test-PortScanActivity {
     $alerts = @()
     $synCount = 0
-    $probeSources = [System.Collections.Generic.List[string]]::new()
-    $portsByRemote = @{}
+    $synProbesByRemote = @{}
 
     try {
         $conns = Get-NetTCPConnection -ErrorAction SilentlyContinue
         if ($conns) {
             foreach ($c in $conns) {
-                # Half-open SYN scan probe
-                if ($c.State -eq "SynReceived") {
-                    $synCount++
-                    if ($c.RemoteAddress -and $c.RemoteAddress -ne "0.0.0.0") {
-                        $probeSources.Add("$($c.RemoteAddress):$($c.LocalPort)")
-                    }
+                $remIp = $c.RemoteAddress
+                if (-not $remIp -or $remIp -match '^::' -or $remIp -eq "0.0.0.0" -or $remIp -match '^127\.' -or $remIp -eq "*") {
+                    continue
                 }
 
-                # Inbound probe to sensitive attack ports
-                if ($c.LocalPort -in @(135, 137, 138, 139, 445, 3389, 5985) -and $c.State -in @("Established", "SynReceived", "TimeWait")) {
-                    if ($c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1" -and $c.RemoteAddress -ne "0.0.0.0") {
+                # Vector 1: Half-open SYN scan probe (State = SynReceived)
+                # Exclusively catches INBOUND connection attempts from external hosts (e.g. nmap -sS)
+                if ($c.State -eq "SynReceived") {
+                    $synCount++
+                    if (-not $synProbesByRemote.ContainsKey($remIp)) {
+                        $synProbesByRemote[$remIp] = [System.Collections.Generic.HashSet[int]]::new()
+                    }
+                    $synProbesByRemote[$remIp].Add($c.LocalPort) | Out-Null
+                }
+
+                # Vector 2: Inbound probe directly to critical Windows services (LocalPort = 135, 139, 445, 3389, 5985)
+                # Must be an incoming connection targeting our local service, not outbound client traffic
+                if ($c.LocalPort -in @(135, 137, 138, 139, 445, 3389, 5985) -and $c.State -in @("SynReceived", "Established")) {
+                    if ($c.RemotePort -notin @(135, 137, 138, 139, 445, 3389, 5985)) {
                         $alerts += [PSCustomObject]@{
                             Severity = "HIGH"
                             Type     = "SENSITIVE_PORT_PROBE"
                             Target   = "Port $($c.LocalPort)"
-                            Detail   = "Inbound TCP connection on port $($c.LocalPort) from $($c.RemoteAddress)."
+                            Detail   = "Inbound TCP connection on port $($c.LocalPort) from $remIp."
                         }
                     }
-                }
-
-                # Track multi-port scanning from any single remote address
-                if ($c.RemoteAddress -and $c.RemoteAddress -notmatch "^127\." -and $c.RemoteAddress -ne "::1" -and $c.RemoteAddress -ne "0.0.0.0") {
-                    if (-not $portsByRemote.ContainsKey($c.RemoteAddress)) {
-                        $portsByRemote[$c.RemoteAddress] = [System.Collections.Generic.HashSet[int]]::new()
-                    }
-                    $portsByRemote[$c.RemoteAddress].Add($c.LocalPort) | Out-Null
                 }
             }
         }
     } catch {}
 
-    # Check for multi-port sweep from single host
-    foreach ($remIp in $portsByRemote.Keys) {
-        if ($portsByRemote[$remIp].Count -ge 3) {
-            $portsList = ($portsByRemote[$remIp] | Select-Object -First 5) -join ', '
+    # Check for multi-port SYN sweep from any single external IP
+    foreach ($ip in $synProbesByRemote.Keys) {
+        $ports = $synProbesByRemote[$ip]
+        if ($ports.Count -ge 2) {
+            $portsList = ($ports | Select-Object -First 5) -join ', '
             $alerts += [PSCustomObject]@{
                 Severity = "HIGH"
-                Type     = "PORT_SCAN_SWEEP"
-                Target   = "$remIp"
-                Detail   = "Port scan sweep from $remIp targeting $($portsByRemote[$remIp].Count) ports ($portsList...)."
+                Type     = "SYN_PORT_SCAN_DETECTED"
+                Target   = "$ip ($($ports.Count) ports)"
+                Detail   = "Inbound port scan sweep from $ip targeting ports: $portsList."
             }
         }
     }
 
+    # Fallback to netstat if Get-NetTCPConnection was unavailable
     if ($alerts.Count -eq 0 -and $synCount -eq 0) {
         try {
             $netstat = netstat -ano 2>$null
             foreach ($line in $netstat) {
-                if ($line -match 'SYN_RECEIVED') {
-                    $synCount++
-                    if ($line -match '^\s*TCP\s+\S+:(\d+)\s+(\S+):\d+\s+SYN_RECEIVED') {
-                        $probeSources.Add("$($Matches[2]) -> port $($Matches[1])")
+                if ($line -match '^\s*TCP\s+\S+:(\d+)\s+([0-9a-fA-F\.\:]+):\d+\s+SYN_RECEIVED') {
+                    $lPort = $Matches[1]
+                    $rIp   = $Matches[2]
+                    if ($rIp -notmatch '^127\.' -and $rIp -notmatch '^::' -and $rIp -ne "0.0.0.0") {
+                        $alerts += [PSCustomObject]@{
+                            Severity = "HIGH"
+                            Type     = "SYN_PORT_PROBE"
+                            Target   = "Port $lPort"
+                            Detail   = "Inbound SYN probe on port $lPort from $rIp."
+                        }
                     }
                 }
-                if ($line -match '^\s*TCP\s+\S+:(135|139|445|3389|5985)\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+\s+(ESTABLISHED|SYN_RECEIVED|TIME_WAIT)') {
-                    $remIp = $Matches[2]
+                if ($line -match '^\s*TCP\s+\S+:(135|139|445|3389|5985)\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+\s+ESTABLISHED') {
                     $port = $Matches[1]
-                    if ($remIp -notmatch "^127\.") {
+                    $rIp  = $Matches[2]
+                    if ($rIp -notmatch "^127\.") {
                         $alerts += [PSCustomObject]@{
                             Severity = "HIGH"
                             Type     = "SENSITIVE_PORT_PROBE"
                             Target   = "Port $port"
-                            Detail   = "Inbound TCP probe on port $port from $remIp."
+                            Detail   = "Inbound TCP probe on port $port from $rIp."
                         }
                     }
                 }
             }
         } catch {}
-    }
-
-    if ($synCount -ge 2) {
-        $alerts += [PSCustomObject]@{
-            Severity = "HIGH"
-            Type     = "SYN_PORT_SCAN_DETECTED"
-            Target   = "$synCount probes"
-            Detail   = "Half-open SYN scan detected ($synCount probes: $($probeSources -join ', '))."
-        }
     }
 
     return $alerts
