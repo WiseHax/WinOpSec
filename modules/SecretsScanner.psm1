@@ -1,6 +1,4 @@
-function Test-IsWindowsOS {
-    return ($env:OS -eq "Windows_NT") -and (-not $IsLinux) -and (-not $IsMacOS)
-}
+# Shared helper Test-IsWindowsOS lives in Common.psm1
 
 function Get-UserHome {
     if ($HOME) { return $HOME }

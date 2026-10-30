@@ -1,20 +1,7 @@
 # UsbOpSec.psm1 - USB-Driven Tactical Execution & Hardware Shielding
 # WinOpSec Apex Operations Security Platform
 
-function Test-AdminPrivilege {
-    if ($PSVersionTable.Platform -eq 'Unix' -or $IsLinux -or $IsMacOS) {
-        try { return ((id -u 2>$null) -eq 0) } catch { return $false }
-    }
-    try {
-        return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    } catch {
-        return $false
-    }
-}
-
-function Test-IsWindowsOS {
-    return ($env:OS -eq "Windows_NT") -and (-not $IsLinux) -and (-not $IsMacOS)
-}
+# Shared helpers Test-AdminPrivilege / Test-IsWindowsOS live in Common.psm1
 
 function Get-RunningDriveContext {
     $scriptRoot = $PSScriptRoot

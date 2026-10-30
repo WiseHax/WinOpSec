@@ -6,7 +6,7 @@ Operations security, Mullvad VPN partner integration, browser anti-leak/anti-inf
 
 ## Supported Operating Systems
 
-- **Tier 1 (Flagship / Fully Weaponized):** Windows 10 & Windows 11 (21H2, 22H2, 23H2, 24H2+, Windows Server — all editions, x64 & ARM64)
+- **Tier 1 (Full support):** Windows 10 & Windows 11 (21H2, 22H2, 23H2, 24H2+, Windows Server — all editions, x64 & ARM64)
   - Full support for real-time public defensive sentry, deep low-level kernel memory guards, PCA/BAM/SRUM neutralizers, WFP Mullvad killswitch, LSASS RunAsPPL, ShellBags sanitization, and hardware GUID randomization.
 - **Tier 2 (Experimental Stubs / Roadmap):** Linux & macOS
   - Basic cross-platform stubs (shell history shredder, basic network reconnaissance, journal vacuuming). Full feature parity in active development.
@@ -32,7 +32,7 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
   - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
   - `[5] Full Security Posture Audit` — Comprehensive 53-point benchmark scan
 - `hud` / `dash` — displays the real-time Tactical Cyber HUD: 8-vector sentry perimeter, live Mullvad tunnel encryption (Kyber-1024), killswitch status, DAITA, RAM metrics, canary tripwire state & overall posture score
-- `intro` / `tour` — launches animated Apple-style onboarding boot sequence with human neural voice narration (`en-US-ChristopherNeural`), teaching the 6 cardinal OpSec rules and calling out script-kiddie blunders
+- `intro` / `tour` — animated onboarding sequence with optional voice narration (`en-US-ChristopherNeural` via edge-tts, falls back to SAPI), walking through the 6 core OpSec rules and common mistakes
 - `test-voice` — instantaneous hardware audio diagnostic to verify speaker output and audio pipeline
 - `guide <command>` — displays in-depth plain-language explanation of any feature (e.g. `guide sentry`, `guide chameleon`, `guide pca`, `guide canary`)
 

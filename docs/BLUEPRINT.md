@@ -1,5 +1,5 @@
-# WINOPSEC v5.0 APEX ARCHITECTURE BLUEPRINT
-### Full-Spectrum Defensive OpSec, Tripwire Sentry & Anti-Forensic Execution Topology
+# WinOpSec — Architecture Blueprint
+### Defensive OpSec, sentry tripwire, and anti-forensics layout
 
 ---
 

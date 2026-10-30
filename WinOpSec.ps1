@@ -35,13 +35,15 @@ param (
     [switch]$Vanish,
     [switch]$Intro,
     [switch]$TestVoice,
+    [switch]$VmShield,
+    [switch]$AuditVm,
     [switch]$Help
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "UsbOpSec.psm1", "IntroTour.psm1")) {
+foreach ($mod in @("Common.psm1", "BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "UsbOpSec.psm1", "IntroTour.psm1", "VmShield.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -170,11 +172,18 @@ function Invoke-Audit {
     $diskResult = Audit-DiskEncryption
     Write-StatusRow -State $diskResult.Status -Label $diskResult.Target -Detail $diskResult.Details
 
+    Write-Host "`n  vm shield, host stealth & leak sentry" -ForegroundColor DarkGray
+    $vmShieldResults = Audit-VmShieldPosture
+    foreach ($r in $vmShieldResults) {
+        Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
+    }
+
     $scoredEgress = @($egressResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredBrowser = @($browserResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredSentry = @($sentryResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredCanaries = @($canaryTraps | Where-Object { $_.State -ne "MISSING" } | ForEach-Object { if ($_.State -eq "ARMED") { "HARDENED" } else { "EXPOSED" } })
-    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status) + $scoredSentry + $scoredCanaries
+    $scoredVm = @($vmShieldResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
+    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status) + $scoredSentry + $scoredCanaries + $scoredVm
     $passed = ($allChecks | Where-Object { $_ -eq "HARDENED" -or $_ -eq "CLEAN" }).Count
     $total  = $allChecks.Count
     $score  = if ($total -gt 0) { [math]::Round(($passed / $total) * 100, 1) } else { 100 }
@@ -195,6 +204,8 @@ function Invoke-HardenAll {
     Harden-FirewallEgress
     Harden-Browsers
     Invoke-MullvadPartner -Action "harden"
+    Enable-VmHostStealthFirewall | Out-Null
+    Harden-VirtualAdapters
     Write-Host "`n  done." -ForegroundColor Green
 }
 
@@ -238,6 +249,8 @@ function Show-Usage {
     Write-Host "    -SpoofMac         randomize active physical adapter MAC address"
     Write-Host "    -ScanSecrets      scan user dirs for private keys, .env & API tokens"
     Write-Host "    -Panic            emergency shred all traces, flush ARP/DNS & lock screen"
+    Write-Host "    -VmShield         launch real-time VM sentry, memory watchdog & host stealth firewall"
+    Write-Host "    -AuditVm          audit VirtualBox VMs for clipboard, shared folder & RAM leak risks"
     Write-Host "    -Restore          revert system state from latest snapshot"
     Write-Host ""
 }
@@ -247,6 +260,31 @@ function Show-TacticalHud {
     param(
         [switch]$NonInteractive
     )
+
+    # Render helpers: badges and values are driven by live audit data, not hardcoded.
+    $StatusToBadge = {
+        param($status)
+        if ($status -eq 'HARDENED' -or $status -eq 'CLEAN' -or $status -eq 'ENCRYPTED') { return @{ Tag = 'PASS'; Color = 'Green' } }
+        elseif ($status -eq 'CONFIGURABLE') { return @{ Tag = 'INFO'; Color = 'Yellow' } }
+        else { return @{ Tag = 'FAIL'; Color = 'Red' } }
+    }
+    $FindCheck = {
+        param($arr, $name)
+        return ($arr | Where-Object { $_.Check -eq $name } | Select-Object -First 1)
+    }
+    $GuardVal = {
+        param($chk, $fallbackText)
+        if (-not $chk) { return @{ Val = $fallbackText; Color = 'DarkGray' } }
+        $c = if ($chk.Status -eq 'HARDENED' -or $chk.Status -eq 'CLEAN') { 'Green' } elseif ($chk.Status -eq 'CONFIGURABLE') { 'Yellow' } else { 'Red' }
+        return @{ Val = $chk.Details; Color = $c }
+    }
+    $Row = {
+        param($tag, $tagColor, $label, $rightCap, $rightVal, $rightColor)
+        Write-Host ("  [{0,-4}] " -f $tag) -ForegroundColor $tagColor -NoNewline
+        Write-Host ("{0,-34}" -f $label) -ForegroundColor Gray -NoNewline
+        Write-Host ("{0,-10} : " -f $rightCap) -ForegroundColor DarkGray -NoNewline
+        Write-Host $rightVal -ForegroundColor $rightColor
+    }
 
     $hudLoop = $true
     while ($hudLoop) {
@@ -265,8 +303,6 @@ function Show-TacticalHud {
             $canaryArmed = @($cTraps | Where-Object { $_.State -eq "ARMED" }).Count
             $canaryTripped = @($cTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
         }
-        $canaryTag = if ($canaryTripped -gt 0) { "TRIPPED (BREACH ALERT!)" } elseif ($canaryArmed -gt 0) { "ARMED ($canaryArmed TRAPS)" } else { "NOT DEPLOYED" }
-        $canaryColor = if ($canaryTripped -gt 0) { "Red" } elseif ($canaryArmed -gt 0) { "Green" } else { "DarkGray" }
 
         $osInfo = try { Get-CimInstance Win32_OperatingSystem -ErrorAction Stop } catch { $null }
         if (-not $osInfo) {
@@ -296,45 +332,66 @@ function Show-TacticalHud {
 
         Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
 
-        Write-Host "  [SENTRY PERIMETER (8 VECTORS)]            [TUNNEL & KERNEL GUARDS]" -ForegroundColor White
-        Write-Host "  [PASS] Gateway ARP Integrity              " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Tunnel     : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "$vpnStatus" -ForegroundColor $vpnColor
+        # --- real posture snapshot (drives every badge below) ---
+        $telPosture = @(); $egrPosture = @(); $senPosture = @()
+        try { $telPosture = @(Audit-Telemetry) } catch {}
+        try { $egrPosture = @(Audit-VpnAndEgress) } catch {}
+        try { $senPosture = @(Audit-SentryPosture) } catch {}
+        $posture = $telPosture + $egrPosture + $senPosture
 
-        Write-Host "  [PASS] SYN Port Scan Guard (445/135)      " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Killswitch : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "STRICT (WFP block-all)" -ForegroundColor Green
+        $scored = @($posture | Where-Object { $_.Status -ne 'CONFIGURABLE' })
+        $passCount = @($scored | Where-Object { $_.Status -eq 'HARDENED' -or $_.Status -eq 'CLEAN' -or $_.Status -eq 'ENCRYPTED' }).Count
+        $scoreTotal = $scored.Count
+        $scorePct = if ($scoreTotal -gt 0) { [math]::Round(($passCount / $scoreTotal) * 100, 1) } else { 0 }
+        $scoreColor = if ($scorePct -ge 85) { 'Green' } elseif ($scorePct -ge 50) { 'Yellow' } else { 'Red' }
+        $barWidth = 35
+        $filled = [int][math]::Round(($scorePct / 100) * $barWidth)
+        if ($filled -gt $barWidth) { $filled = $barWidth }
+        $bar = ('=' * $filled) + ('.' * ($barWidth - $filled))
 
-        Write-Host "  [PASS] Hardware USB Tripwire (BadUSB)     " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Crypt-PQC  : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Kyber-1024 Quantum-Safe" -ForegroundColor Green
+        # left column (perimeter) badges from live sentry posture
+        $arpBase = & $FindCheck $senPosture 'Gateway ARP Baseline'
+        $arpColl = & $FindCheck $senPosture 'ARP Table Collision Check'
+        $arpStatus = if ($arpColl -and $arpColl.Status -eq 'FAIL') { 'FAIL' } elseif ($arpBase) { $arpBase.Status } else { 'CONFIGURABLE' }
+        $arpB = & $StatusToBadge $arpStatus
+        $usbChk = & $FindCheck $senPosture 'USB Perimeter Tripwire'
+        $usbB = & $StatusToBadge $(if ($usbChk) { $usbChk.Status } else { 'CONFIGURABLE' })
+        $sensorChk = & $FindCheck $senPosture 'Sensor Hardware Lockdown'
+        $eavesChk  = & $FindCheck $senPosture 'Live Eavesdropping Sentinel'
+        $sensorStatus = if ($eavesChk -and $eavesChk.Status -eq 'FAIL') { 'FAIL' } elseif ($sensorChk) { $sensorChk.Status } else { 'CONFIGURABLE' }
+        $sensorB = & $StatusToBadge $sensorStatus
+        $canTag = if ($canaryTripped -gt 0) { 'FAIL' } elseif ($canaryArmed -gt 0) { 'PASS' } else { 'IDLE' }
+        $canColor = if ($canaryTripped -gt 0) { 'Red' } elseif ($canaryArmed -gt 0) { 'Green' } else { 'DarkGray' }
 
-        Write-Host "  [PASS] Rogue DNS Resolver Lock            " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Traffic-AI : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Maybenot DAITA (Anti-AI)" -ForegroundColor Green
+        # right column (guards) values from live telemetry/vpn posture
+        $gKill = & $GuardVal (& $FindCheck $egrPosture 'Mullvad Partner Lockdown') 'n/a (mullvad cli absent)'
+        $pqChk = & $FindCheck $egrPosture 'Mullvad Post-Quantum & DAITA'
+        $pqText = if ($pqChk) { (($pqChk.Details -split '\|')[0]).Trim() } else { 'n/a (mullvad cli absent)' }
+        $daText = if ($pqChk -and ($pqChk.Details -split '\|').Count -ge 2) { (($pqChk.Details -split '\|')[1]).Trim() } else { 'n/a (mullvad cli absent)' }
+        $pqColor = if ($pqChk -and $pqText -match '(?i)on') { 'Green' } elseif ($pqChk) { 'Yellow' } else { 'DarkGray' }
+        $daColor = if ($pqChk -and $daText -match '(?i)on') { 'Green' } elseif ($pqChk) { 'Yellow' } else { 'DarkGray' }
+        $gLsass = & $GuardVal (& $FindCheck $telPosture 'LSASS Memory Guard (RunAsPPL)') 'unknown (needs admin)'
+        $gKern  = & $GuardVal (& $FindCheck $telPosture 'Kernel Memory Paging Guard') 'unknown (needs admin)'
+        $gDma   = & $GuardVal (& $FindCheck $telPosture 'External DMA Guard (Anti-PCILeech)') 'unknown (needs admin)'
+        $gWpbt  = & $GuardVal (& $FindCheck $telPosture 'UEFI WPBT Firmware Execution') 'unknown (needs admin)'
 
-        Write-Host "  [PASS] Microphone & Cam Sensor Trap       " -ForegroundColor DarkGray -NoNewline
-        Write-Host "LSASS Mode : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "RunAsPPL (Protected Process Light)" -ForegroundColor Green
-
-        Write-Host "  [PASS] Evil Twin AP / BSSID Guard         " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Kernel RAM : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "DisablePagingExecutive (RAM-Locked)" -ForegroundColor Green
-
-        Write-Host "  [PASS] Active Reverse Shell Trap          " -ForegroundColor DarkGray -NoNewline
-        Write-Host "DMA Guard  : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Anti-PCILeech / Thunderbolt Locked" -ForegroundColor Green
-
-        Write-Host "  [CANARY] Honeytoken Breach Traps: " -ForegroundColor DarkGray -NoNewline
-        Write-Host ("{0,-9} " -f $canaryTag) -ForegroundColor $canaryColor -NoNewline
-        Write-Host "UEFI WPBT  : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Firmware ROM Execution Disabled" -ForegroundColor Green
+        Write-Host "  [SENTRY PERIMETER]                        [TUNNEL & KERNEL GUARDS]" -ForegroundColor White
+        & $Row $arpB.Tag $arpB.Color 'Gateway ARP Integrity' 'Tunnel' $vpnStatus $vpnColor
+        & $Row 'IDLE' 'DarkGray' 'SYN Port Scan Guard (live)' 'Killswitch' $gKill.Val $gKill.Color
+        & $Row $usbB.Tag $usbB.Color 'Hardware USB Tripwire' 'Crypt-PQC' $pqText $pqColor
+        & $Row 'IDLE' 'DarkGray' 'Rogue DNS Watch (live)' 'Traffic-AI' $daText $daColor
+        & $Row $sensorB.Tag $sensorB.Color 'Microphone & Cam Sensor Trap' 'LSASS Mode' $gLsass.Val $gLsass.Color
+        & $Row 'IDLE' 'DarkGray' 'Evil Twin AP Guard (live)' 'Kernel RAM' $gKern.Val $gKern.Color
+        & $Row 'IDLE' 'DarkGray' 'Reverse Shell Trap (live)' 'DMA Guard' $gDma.Val $gDma.Color
+        & $Row $canTag $canColor 'Honeytoken Canary Traps' 'UEFI WPBT' $gWpbt.Val $gWpbt.Color
 
         Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
         Write-Host "  SECURITY POSTURE : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "[===================================> ] 94.2% (49/52 PASS)" -ForegroundColor Green
+        Write-Host ("[{0}] {1}% ({2}/{3} PASS)" -f $bar, $scorePct, $passCount, $scoreTotal) -ForegroundColor $scoreColor
+        Write-Host "  SENTRY VECTORS   : " -ForegroundColor DarkGray -NoNewline
+        Write-Host "live vectors (IDLE) arm only while 'sentry' runs" -ForegroundColor DarkGray
         Write-Host "  COUNTERMEASURES  : " -ForegroundColor DarkGray -NoNewline
-        Write-Host "Auto-Panic Armed (Instant Route Sever & Workstation Lock)" -ForegroundColor Red
+        Write-Host "Manual (arm auto-sever with 'sentry -autopanic')" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "  [1] Cafe   [2] Lockdown   [3] Canary   [4] Wipe RAM   [5] USB Deploy   [R] Refresh   [0] Exit HUD" -ForegroundColor Gray
         Write-Host ""
@@ -446,6 +503,12 @@ function Show-Menu {
     Write-Host "      usb shield off  - restore normal read/write to usb ports" -ForegroundColor DarkGray
     Write-Host "      deadman         - usb buskill lanyard trigger (panic on physical pull)" -ForegroundColor DarkGray
     Write-Host "      vanish / burn   - emergency self-destruct (DoD shred winopsec, TRIM & poweroff)" -ForegroundColor Red
+
+    Write-Host "`n  [7] vm shield & hypervisor leak guard" -ForegroundColor White
+    Write-Host "      vm / vm watch   - real-time vm sentry, memory watchdog & stealth isolation" -ForegroundColor Cyan
+    Write-Host "      vm audit        - scan virtualbox configs for clipboard, folder & ram leaks" -ForegroundColor Gray
+    Write-Host "      vm stealth on   - block guest vms from probing host windows listening ports" -ForegroundColor DarkGray
+    Write-Host "      vm stealth off  - disable vm host stealth firewall rules" -ForegroundColor DarkGray
 
     Write-Host "`n  [!] shortcuts & navigation" -ForegroundColor White
     Write-Host "      quick           - 1-click scenario wizard (cafe, lockdown, clean)" -ForegroundColor Green
@@ -640,6 +703,20 @@ function Show-CommandGuide {
             Write-Host "`n  Operational Advantage:" -ForegroundColor White
             Write-Host "    Running from USB leaves ZERO WinOpSec source code or tools on the host SSD." -ForegroundColor Yellow
         }
+        "^(vm|vmshield|vbox|virtualbox)$" {
+            Write-Host "  VM Shield & Hypervisor Leak Sentry Guide" -ForegroundColor Cyan
+            Write-Host "  Purpose: Isolates host Windows identity and guards against VM leaks and host crashes." -ForegroundColor White
+            Write-Host "  Key Defenses:" -ForegroundColor Gray
+            Write-Host "    - Host Stealth Firewall -> Blocks guest VMs from probing host SMB (445), RPC, NetBIOS, MySQL" -ForegroundColor DarkGray
+            Write-Host "    - Memory Watchdog      -> Alerts if VirtualBox starts leaking memory towards 8 GB limit" -ForegroundColor DarkGray
+            Write-Host "    - TCP Port Sentry      -> Monitors ephemeral port allocations to prevent Wi-Fi/Taskbar freeze" -ForegroundColor DarkGray
+            Write-Host "    - VM Config Audit      -> Flags bidirectional clipboard, shared folders and dangerous RAM limits" -ForegroundColor DarkGray
+            Write-Host "`n  Usage:" -ForegroundColor White
+            Write-Host "    vm watch         -> Continuous VM monitoring and real-time host leak guard" -ForegroundColor Yellow
+            Write-Host "    vm audit         -> Inspect VirtualBox VM files for configuration leaks" -ForegroundColor Gray
+            Write-Host "    vm stealth on    -> Arm WFP host-stealth firewall rules" -ForegroundColor Green
+            Write-Host "    vm stealth off   -> Remove host-stealth firewall rules" -ForegroundColor DarkGray
+        }
         default {
             Write-Host "  WinOpSec Operational Guide" -ForegroundColor Cyan
             Write-Host "  Type 'guide <topic>' for in-depth details on any module:`n" -ForegroundColor DarkGray
@@ -689,6 +766,8 @@ if ($WipeRam)       { Write-Header; Invoke-RamSanitize; exit }
 if ($Jitter)        { Write-Header; Invoke-TimestampJitter -TargetPath $Jitter; exit }
 if ($TestVoice)     { Test-VoiceOutput; exit }
 if ($Intro)         { Invoke-CyberIntro; exit }
+if ($VmShield)      { Write-Header; Start-VmShieldSentinel -SinglePass:$SinglePass; exit }
+if ($AuditVm)       { Write-Header; Write-Host "`n  === VIRTUAL MACHINE LEAK & ISOLATION AUDIT ===" -ForegroundColor Cyan; Audit-VirtualBoxConfigurations | Format-Table -AutoSize; exit }
 
 Clear-Host
 Write-Header
@@ -991,6 +1070,46 @@ while ($sessionActive) {
             Write-Host ""
             Set-UsbWriteProtect -Action $act
             Write-Host ""
+        }
+        "^(vm|vms|vm-hub|vmfortress)$" {
+            Show-VmHub
+        }
+        "^vm\s+(watch|sentry|monitor)$" {
+            Start-VmShieldSentinel
+        }
+        "^vm\s+(list|inventory|ls|status)$" {
+            Show-VmInventory
+        }
+        "^vm\s+(fix|harden|harden-all)(\s+(\S+))?$" {
+            $t = if ($Matches[3]) { $Matches[3] } else { "ALL" }
+            Harden-VirtualBoxVMs -TargetVM $t
+        }
+        "^vm\s+ram\s+(\S+)\s+(\d+)$" {
+            Set-VmRam -VmName $Matches[1] -RamMb ([int]$Matches[2])
+        }
+        "^vm\s+clip\s+(\S+)\s+(\S+)$" {
+            Set-VmClipboard -VmName $Matches[1] -Mode $Matches[2]
+        }
+        "^vm\s+(audit|check|scan)$" {
+            Write-Host "`n  === VIRTUAL MACHINE CONFIG AUDIT ===" -ForegroundColor Cyan
+            $findings = Audit-VirtualBoxConfigurations
+            if ($findings.Count -eq 0) {
+                Write-Host "  [PASS] No high-risk VM leak configurations found.`n" -ForegroundColor Green
+            } else {
+                $findings | Format-Table -AutoSize
+                Write-Host ""
+            }
+        }
+        "^vm\s+stealth(\s+(on|enable|arm))?$" {
+            Write-Host ""
+            Enable-VmHostStealthFirewall | Out-Null
+            Harden-VirtualAdapters
+            Write-Host "  [+] VM Host Stealth firewall armed: Host listening ports hidden from guests.`n" -ForegroundColor Green
+        }
+        "^vm\s+stealth\s+(off|disable|disarm)$" {
+            Write-Host ""
+            Disable-VmHostStealthFirewall
+            Write-Host "  [-] VM Host Stealth firewall rules removed.`n" -ForegroundColor Yellow
         }
         "^(quick|wizard|mode|modes)$" {
             Invoke-GuidedWizard
