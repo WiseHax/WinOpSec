@@ -2,7 +2,16 @@
 
 Operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, real-time public sentry & intrusion tripwire, kernel memory protection, honeytoken canary traps, and anti-forensics suite.
 
-> For system flowcharts, signal routing, and architectural schematics, see [Architecture Blueprint](file:///c:/Users/Wise/Desktop/WinOpSec/docs/BLUEPRINT.md).
+> For system flowcharts, signal routing, and architectural schematics, see [Architecture Blueprint](docs/BLUEPRINT.md).
+> Before running anything, read the [Threat Model](docs/THREAT-MODEL.md) — what WinOpSec does and does **not** protect against.
+
+## Design principle: verify, never assume
+
+WinOpSec reports **only what it can confirm**. Every registry/service hardening
+write is read back and verified; a change that cannot be applied or confirmed is
+reported as a failure, never a silent PASS. Audits are read-only, and every state
+change is snapshotted to `backups/` so `restore` can roll it back. If a claim in
+this README cannot be demonstrated on your host, the audit will say so.
 
 ## Supported Operating Systems
 
@@ -10,6 +19,21 @@ Operations security, Mullvad VPN partner integration, browser anti-leak/anti-inf
   - Full support for real-time public defensive sentry, deep low-level kernel memory guards, PCA/BAM/SRUM neutralizers, WFP Mullvad killswitch, LSASS RunAsPPL, ShellBags sanitization, and hardware GUID randomization.
 - **Tier 2 (Experimental Stubs / Roadmap):** Linux & macOS
   - Basic cross-platform stubs (shell history shredder, basic network reconnaissance, journal vacuuming). Full feature parity in active development.
+
+## Install
+
+Clone the repository, or import the module manifest to load every capability
+module at once:
+
+```powershell
+git clone https://github.com/WiseHax/WinOpSec.git
+cd WinOpSec
+Import-Module ./WinOpSec.psd1    # loads all capability modules
+```
+
+Most hardening and anti-forensic actions require an elevated (Administrator)
+session; `run.bat` auto-elevates via UAC. Read-only audits work unprivileged and
+will mark admin-only checks accordingly.
 
 ## Usage
 
@@ -30,7 +54,7 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
   - `[2] Complete Host Lockdown` — Kernel PPL + LSASS guard + disable telemetry & leaks
   - `[3] Secure Ephemeral Browsing` — Anti-WebRTC leak + ephemeral private browser session
   - `[4] Post-Session Trace Scrub & Camouflage` — Neutralize PCA/ShellBags + seed civilian noise
-  - `[5] Full Security Posture Audit` — Comprehensive 53-point benchmark scan
+  - `[5] Full Security Posture Audit` — comprehensive posture benchmark with a live, computed score
 - `hud` / `dash` — displays the real-time Tactical Cyber HUD: 8-vector sentry perimeter, live Mullvad tunnel encryption (Kyber-1024), killswitch status, DAITA, RAM metrics, canary tripwire state & overall posture score
 - `intro` / `tour` — animated onboarding sequence with optional voice narration (`en-US-ChristopherNeural` via edge-tts, falls back to SAPI), walking through the 6 core OpSec rules and common mistakes
 - `test-voice` — instantaneous hardware audio diagnostic to verify speaker output and audio pipeline

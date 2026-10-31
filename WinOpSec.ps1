@@ -539,7 +539,7 @@ function Invoke-GuidedWizard {
     Write-Host "      -> Purge execution logs (PCA, ShellBags) and plant civilian decoy files." -ForegroundColor DarkGray
 
     Write-Host "  [5] Full Security Posture Audit" -ForegroundColor White
-    Write-Host "      -> Scan all 53 defensive benchmarks and calculate score." -ForegroundColor DarkGray
+    Write-Host "      -> Scan every defensive benchmark and calculate a live score." -ForegroundColor DarkGray
 
     Write-Host "  [0] Back / Cancel" -ForegroundColor DarkGray
     Write-Host ""
