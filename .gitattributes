@@ -1,0 +1,23 @@
+# Normalize line endings. PowerShell on Windows is happiest with CRLF;
+# enforce it so diffs stay clean regardless of contributor platform.
+*                 text=auto
+
+*.ps1             text eol=crlf
+*.psm1            text eol=crlf
+*.psd1            text eol=crlf
+*.bat             text eol=crlf
+*.cmd             text eol=crlf
+
+*.md              text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+*.json            text eol=lf
+.gitattributes    text eol=lf
+.gitignore        text eol=lf
+.editorconfig     text eol=lf
+
+# Binary assets — never touch line endings.
+*.mp3             binary
+*.png             binary
+*.jpg             binary
+*.ico             binary

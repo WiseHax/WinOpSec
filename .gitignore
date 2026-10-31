@@ -1,11 +1,16 @@
-# Local state snapshots & registry backups (contain machine identifiers)
-backups/
-*.json
+# Runtime state snapshots & registry backups (contain machine identifiers)
+backups/*
+!backups/.gitkeep
+
+# Loose state/registry exports if ever written outside backups/
+state_*.json
+*.reg.bak
 *.bak
 *.tmp
 
 # PowerShell & terminal histories
 *.history
+ConsoleHost_history.txt
 *.log
 
 # Operating system artifacts
@@ -17,4 +22,3 @@ Desktop.ini
 .vscode/
 .idea/
 *.swp
-
