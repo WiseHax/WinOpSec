@@ -91,8 +91,40 @@ function Set-ServiceDisabled {
     return $r
 }
 
+# Append-only change log so the operator has an audit trail of exactly what was
+# changed, when, and whether it verified. Lives in backups/ (gitignored). Best
+# effort: logging never blocks or breaks a hardening run.
+function Get-OpSecLogPath {
+    $parent = Split-Path -Parent $PSScriptRoot
+    $backupDir = Join-Path $parent "backups"
+    if (-not (Test-Path $backupDir)) {
+        try { New-Item -ItemType Directory -Path $backupDir -Force -ErrorAction Stop | Out-Null } catch { return $null }
+    }
+    return (Join-Path $backupDir "winopsec_changes.log")
+}
+
+function Write-OpSecLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Group,
+        [AllowEmptyCollection()][object[]]$Results = @()
+    )
+    $path = Get-OpSecLogPath
+    if (-not $path) { return }
+    $stamp = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssK')
+    $lines = foreach ($r in $Results) {
+        $state = if ($r.Applied) { 'APPLIED ' } else { 'FAILED  ' }
+        $why   = if ($r.Error) { " :: $($r.Error)" } else { '' }
+        "{0} {1} [{2}] {3}{4}" -f $stamp, $state, $Group, $r.Setting, $why
+    }
+    if ($lines) {
+        try { Add-Content -Path $path -Value $lines -Encoding UTF8 -ErrorAction Stop } catch {}
+    }
+}
+
 # Print one honest summary line for a group of Set-HardenedValue /
 # Set-ServiceDisabled results: green when all verified, else list failures.
+# Also records the outcome to the change log for later review.
 function Write-HardenGroup {
     [CmdletBinding()]
     param(
@@ -113,4 +145,5 @@ function Write-HardenGroup {
             Write-Host ("       x {0} -> {1}" -f $f.Setting, $why) -ForegroundColor Red
         }
     }
+    if ($total -gt 0) { Write-OpSecLog -Group $Label -Results $Results }
 }
