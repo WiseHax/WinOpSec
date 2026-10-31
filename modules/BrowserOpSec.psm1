@@ -622,7 +622,7 @@ function Remove-BrowserAccountTraces {
     }
 }
 
-function Audit-BrowserOpSec {
+function Get-BrowserPosture {
     $results = @()
 
     if (Test-IsWindowsOS) {
@@ -724,7 +724,7 @@ function Audit-BrowserOpSec {
     return $results
 }
 
-function Harden-Browsers {
+function Protect-Browsers {
     $isAdmin = Test-AdminPrivilege
 
     if (Test-IsWindowsOS) {
@@ -824,4 +824,4 @@ function Start-HardenedBrowser {
     Write-Host "  ok  $($preferred.Name) launched (WebRTC UDP blocked, isolated session)" -ForegroundColor Green
 }
 
-Export-ModuleMember -Function Get-InstalledBrowsers, Get-BrowserProfiles, Show-BrowserInventory, Audit-BrowserOpSec, Harden-Browsers, Clear-BrowserTraces, Clear-BrowserHistoryAndTraces, Remove-BrowserAccountTraces, Start-HardenedBrowser, Clear-BrowserAutofill
+Export-ModuleMember -Function Get-InstalledBrowsers, Get-BrowserProfiles, Show-BrowserInventory, Get-BrowserPosture, Protect-Browsers, Clear-BrowserTraces, Clear-BrowserHistoryAndTraces, Remove-BrowserAccountTraces, Start-HardenedBrowser, Clear-BrowserAutofill

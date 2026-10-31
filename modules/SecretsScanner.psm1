@@ -6,7 +6,7 @@ function Get-UserHome {
     return [Environment]::GetFolderPath("UserProfile")
 }
 
-function Audit-DiskEncryption {
+function Get-DiskEncryptionStatus {
     if (Test-IsWindowsOS) {
         $bitlocker = $null
         try {
@@ -43,7 +43,7 @@ function Audit-DiskEncryption {
     }
 }
 
-function Scan-ExposedSecrets {
+function Find-ExposedSecrets {
     param (
         [string[]]$ScanPaths
     )
@@ -133,4 +133,4 @@ function Scan-ExposedSecrets {
     return $findings
 }
 
-Export-ModuleMember -Function Audit-DiskEncryption, Scan-ExposedSecrets
+Export-ModuleMember -Function Get-DiskEncryptionStatus, Find-ExposedSecrets

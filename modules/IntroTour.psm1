@@ -58,7 +58,7 @@ function Get-TtsVoiceEngine {
     }
 }
 
-function Play-OpSecAudioClip {
+function Invoke-OpSecAudioClip {
     param(
         [string]$ClipName,
         [string]$FallbackText
@@ -84,7 +84,7 @@ function Play-OpSecAudioClip {
 
     # Fallback to SAPI voice synthesizer if audio file is missing
     if ($FallbackText) {
-        Speak-Narration -Text $FallbackText
+        Invoke-Narration -Text $FallbackText
         return @{ Type = "SAPI"; File = $null }
     }
     return $null
@@ -101,7 +101,7 @@ function Stop-OpSecAudio {
     Stop-Narration
 }
 
-function Speak-Narration {
+function Invoke-Narration {
     param(
         [string]$Text,
         [switch]$Wait
@@ -154,8 +154,8 @@ function Test-VoiceOutput {
         Write-Host "  [PASS] Neural Audio: Loaded from assets\audio (Sanitized PCM/MP3)" -ForegroundColor Green
         Write-Host "  [PASS] Audio Pipeline: PresentationCore.MediaPlayer" -ForegroundColor Green
         Write-Host "  playing neural audio sample through laptop speakers..." -ForegroundColor DarkGray
-        Play-SubtleTone -Freq 1000 -DurationMs 70
-        $handle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Audio check complete."
+        Invoke-SubtleTone -Freq 1000 -DurationMs 70
+        $handle = Invoke-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Audio check complete."
         $null = Wait-AudioPlaybackFinish -PlayHandle $handle -MaxMs 15000 -AllowSkip
         Write-Host "  [DONE] Neural voice audio test finished.`n" -ForegroundColor Green
         return
@@ -177,12 +177,12 @@ function Test-VoiceOutput {
     Write-Host "  [PASS] Engine: $($tts.Type) | Voice: $voiceName" -ForegroundColor Green
     Write-Host "  speaking test phrase through laptop speakers..." -ForegroundColor DarkGray
 
-    Play-SubtleTone -Freq 1000 -DurationMs 70
-    Speak-Narration -Text "Audio check complete. WinOpSec voice engine is active and clear." -Wait
+    Invoke-SubtleTone -Freq 1000 -DurationMs 70
+    Invoke-Narration -Text "Audio check complete. WinOpSec voice engine is active and clear." -Wait
     Write-Host "  [DONE] Voice audio test finished.`n" -ForegroundColor Green
 }
 
-function Play-SubtleTone {
+function Invoke-SubtleTone {
     param([int]$Freq = 1000, [int]$DurationMs = 60)
     try {
         [Console]::Beep($Freq, $DurationMs)
@@ -316,12 +316,12 @@ function Invoke-CyberIntro {
 
     Write-Host "  [press space or enter to skip step, esc to skip all]`n" -ForegroundColor DarkGray
 
-    Play-SubtleTone -Freq 800 -DurationMs 60
-    Play-SubtleTone -Freq 1100 -DurationMs 75
+    Invoke-SubtleTone -Freq 800 -DurationMs 60
+    Invoke-SubtleTone -Freq 1100 -DurationMs 75
 
     $introHandle = $null
     if (-not $VoiceMute) {
-        $introHandle = Play-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Greetings. Welcome to WinOpSec. Don't act like a brain-dead script kiddie downloading tools you don't understand. If your OpSec is trash, you're not a hacker, you're just another clown waiting to get raided. Listen the fuck up to these six rules so you don't get compromised."
+        $introHandle = Invoke-OpSecAudioClip -ClipName "intro_hello.mp3" -FallbackText "Greetings. Welcome to WinOpSec. Don't act like a brain-dead script kiddie downloading tools you don't understand. If your OpSec is trash, you're not a hacker, you're just another clown waiting to get raided. Listen the fuck up to these six rules so you don't get compromised."
     }
 
     Write-AnimatedLine -Text "  > anonymous voice briefing initialized." -CharDelayMs $delay -Color Gray
@@ -335,7 +335,7 @@ function Invoke-CyberIntro {
     }
 
     Write-Host ""
-    Play-SubtleTone -Freq 1300 -DurationMs 70
+    Invoke-SubtleTone -Freq 1300 -DurationMs 70
 
     Write-Host "  Operational Security Rules: What NEVER To Do" -ForegroundColor Cyan
 
@@ -420,7 +420,7 @@ function Invoke-CyberIntro {
 
         $stepHandle = $null
         if (-not $VoiceMute) {
-            $stepHandle = Play-OpSecAudioClip -ClipName $r.Clip -FallbackText $r.Voice
+            $stepHandle = Invoke-OpSecAudioClip -ClipName $r.Clip -FallbackText $r.Voice
         }
 
         Write-Host "`n  [$($r.Number)] $($r.Title)" -ForegroundColor White
@@ -443,7 +443,7 @@ function Invoke-CyberIntro {
     }
 
     if (-not $VoiceMute -and -not $interruptedAll) {
-        $outroHandle = Play-OpSecAudioClip -ClipName "outro.mp3" -FallbackText "Briefing complete. Stop doing stupid shit on the wire. Type quick to begin, or hit enter for the main console. Stay paranoid."
+        $outroHandle = Invoke-OpSecAudioClip -ClipName "outro.mp3" -FallbackText "Briefing complete. Stop doing stupid shit on the wire. Type quick to begin, or hit enter for the main console. Stay paranoid."
         if ($outroHandle) {
             $null = Wait-AudioPlaybackFinish -PlayHandle $outroHandle -MaxMs 15000 -AllowSkip
         }
@@ -461,4 +461,4 @@ function Invoke-CyberIntro {
     Write-Host "`n"
 }
 
-Export-ModuleMember -Function Invoke-CyberIntro, Speak-Narration, Stop-Narration, Test-VoiceOutput
+Export-ModuleMember -Function Invoke-CyberIntro, Invoke-Narration, Stop-Narration, Test-VoiceOutput

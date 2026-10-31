@@ -85,7 +85,7 @@ function Show-UsbInventory {
     $drives | Format-Table -Property DriveLetter, VolumeLabel, FileSystem, FreeGB, TotalGB, BitLocker -AutoSize
 }
 
-function Deploy-UsbOpSec {
+function Install-UsbOpSec {
     [CmdletBinding()]
     param(
         [string]$TargetDrive
@@ -229,4 +229,4 @@ function Set-UsbWriteProtect {
     }
 }
 
-Export-ModuleMember -Function Get-RunningDriveContext, Get-UsbDrives, Show-UsbInventory, Deploy-UsbOpSec, Set-UsbWriteProtect
+Export-ModuleMember -Function Get-RunningDriveContext, Get-UsbDrives, Show-UsbInventory, Install-UsbOpSec, Set-UsbWriteProtect

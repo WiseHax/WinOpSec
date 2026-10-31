@@ -108,72 +108,72 @@ function Write-StatusRow {
 
 function Invoke-Audit {
     Write-Host "  telemetry, lsass & host shield" -ForegroundColor DarkGray
-    $telemetryResults = Audit-Telemetry
+    $telemetryResults = Get-TelemetryPosture
     foreach ($r in $telemetryResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
     Write-Host "`n  anonymity & sensors (vpn-safe)" -ForegroundColor DarkGray
-    $anonymityResults = Audit-Anonymity
+    $anonymityResults = Get-AnonymityPosture
     foreach ($r in $anonymityResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
     Write-Host "`n  network & protocol leaks" -ForegroundColor DarkGray
-    $networkResults = Audit-NetworkOpSec
+    $networkResults = Get-NetworkPosture
     foreach ($r in $networkResults) {
         Write-StatusRow -State $r.Status -Label "$($r.Protocol): $($r.Check)" -Detail "$($r.Details) [risk:$($r.Risk)]"
     }
 
     Write-Host "`n  mullvad / vpn tunnel & egress firewall" -ForegroundColor DarkGray
-    $egressResults = Audit-VpnAndEgress
+    $egressResults = Get-VpnEgressPosture
     foreach ($r in $egressResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
     Write-Host "`n  browser opsec (webrtc, doh & vault shield)" -ForegroundColor DarkGray
-    $browserResults = Audit-BrowserOpSec
+    $browserResults = Get-BrowserPosture
     foreach ($r in $browserResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
     Write-Host "`n  runtime traces & forensic artifacts" -ForegroundColor DarkGray
-    $traceResults = Audit-Traces
+    $traceResults = Get-TraceArtifact
     foreach ($r in $traceResults) {
         Write-StatusRow -State $r.Status -Label $r.Artifact -Detail $r.Count
     }
 
     Write-Host "`n  hardware identity & cryptographic anchors" -ForegroundColor DarkGray
-    $hwResults = Audit-HardwareIdentity
+    $hwResults = Get-HardwareIdentity
     foreach ($r in $hwResults) {
         Write-StatusRow -State $(if ($r.Status -eq "CLEAN") { "CLEAN" } else { "CONFIGURABLE" }) -Label $r.Artifact -Detail "$($r.Value) [risk:$($r.Risk)]"
     }
 
     Write-Host "`n  camouflage & plausible deniability" -ForegroundColor DarkGray
-    $chamResults = Audit-ChameleonState
+    $chamResults = Get-ChameleonState
     foreach ($r in $chamResults) {
         Write-StatusRow -State $(if ($r.Posture -eq "CIVILIAN_CAMOUFLAGE") { "HARDENED" } else { "CONFIGURABLE" }) -Label $r.Profile -Detail "$($r.Posture) ($($r.Decoys))"
     }
 
     Write-Host "`n  public sentry & defensive tripwire posture" -ForegroundColor DarkGray
-    $sentryResults = Audit-SentryPosture
+    $sentryResults = Get-SentryPosture
     foreach ($r in $sentryResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
     Write-Host "`n  breach traps & canary honeytokens" -ForegroundColor DarkGray
-    $canaryTraps = Audit-CanaryTraps
+    $canaryTraps = Get-CanaryTrapState
     foreach ($ct in $canaryTraps) {
         $st = if ($ct.State -eq "ARMED") { "HARDENED" } elseif ($ct.State -eq "TRIPPED") { "EXPOSED" } else { "CONFIGURABLE" }
         Write-StatusRow -State $st -Label "Canary: $($ct.Trap)" -Detail $ct.Details
     }
 
     Write-Host "`n  disk encryption" -ForegroundColor DarkGray
-    $diskResult = Audit-DiskEncryption
+    $diskResult = Get-DiskEncryptionStatus
     Write-StatusRow -State $diskResult.Status -Label $diskResult.Target -Detail $diskResult.Details
 
     Write-Host "`n  vm shield, host stealth & leak sentry" -ForegroundColor DarkGray
-    $vmShieldResults = Audit-VmShieldPosture
+    $vmShieldResults = Get-VmShieldPosture
     foreach ($r in $vmShieldResults) {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
@@ -198,19 +198,19 @@ function Invoke-Audit {
 function Invoke-HardenAll {
     $snap = Save-OpSecState -Description "full"
     Write-Host "  snapshot -> $snap`n" -ForegroundColor DarkGray
-    Harden-Telemetry
-    Harden-Anonymity
-    Harden-NetworkOpSec
-    Harden-FirewallEgress
-    Harden-Browsers
+    Protect-Telemetry
+    Protect-Anonymity
+    Protect-NetworkOpSec
+    Protect-FirewallEgress
+    Protect-Browsers
     Invoke-MullvadPartner -Action "harden"
     Enable-VmHostStealthFirewall | Out-Null
-    Harden-VirtualAdapters
+    Protect-VirtualAdapters
     Write-Host "`n  done." -ForegroundColor Green
 }
 
 function Invoke-TraceWipe {
-    Shred-PowerShellHistory
+    Clear-PowerShellHistory
     Clear-ExplorerTraces
     Clear-BrowserTraces
     Invoke-RamSanitize
@@ -218,7 +218,7 @@ function Invoke-TraceWipe {
 }
 
 function Invoke-SecretsScan {
-    $findings = Scan-ExposedSecrets
+    $findings = Find-ExposedSecrets
     Write-Host ""
     if ($findings.Count -eq 0) {
         Write-Host "  [PASS] 0 exposed secrets found." -ForegroundColor Green
@@ -298,8 +298,8 @@ function Show-TacticalHud {
 
         $canaryArmed = 0
         $canaryTripped = 0
-        if (Get-Command Audit-CanaryTraps -ErrorAction SilentlyContinue) {
-            $cTraps = Audit-CanaryTraps
+        if (Get-Command Get-CanaryTrapState -ErrorAction SilentlyContinue) {
+            $cTraps = Get-CanaryTrapState
             $canaryArmed = @($cTraps | Where-Object { $_.State -eq "ARMED" }).Count
             $canaryTripped = @($cTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
         }
@@ -334,9 +334,9 @@ function Show-TacticalHud {
 
         # --- real posture snapshot (drives every badge below) ---
         $telPosture = @(); $egrPosture = @(); $senPosture = @()
-        try { $telPosture = @(Audit-Telemetry) } catch {}
-        try { $egrPosture = @(Audit-VpnAndEgress) } catch {}
-        try { $senPosture = @(Audit-SentryPosture) } catch {}
+        try { $telPosture = @(Get-TelemetryPosture) } catch {}
+        try { $egrPosture = @(Get-VpnEgressPosture) } catch {}
+        try { $senPosture = @(Get-SentryPosture) } catch {}
         $posture = $telPosture + $egrPosture + $senPosture
 
         $scored = @($posture | Where-Object { $_.Status -ne 'CONFIGURABLE' })
@@ -423,7 +423,7 @@ function Show-TacticalHud {
             }
             "^(3|canary)$" {
                 Write-Host ""
-                Deploy-CanaryTraps
+                Install-CanaryTraps
                 Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
                 [void](Read-Host)
             }
@@ -435,7 +435,7 @@ function Show-TacticalHud {
             }
             "^(5|usb|deploy)$" {
                 Write-Host ""
-                Deploy-UsbOpSec
+                Install-UsbOpSec
                 Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
                 [void](Read-Host)
             }
@@ -561,7 +561,7 @@ function Invoke-GuidedWizard {
         }
         "3" {
             Write-Host "`n  [+] Launching hardened ephemeral browser..." -ForegroundColor Gray
-            Harden-Browsers
+            Protect-Browsers
             Start-HardenedBrowser
         }
         "4" {
@@ -740,7 +740,7 @@ if ($Audit)         { Write-Header; Invoke-Audit; exit }
 if ($Recon)         { Write-Header; Invoke-NetworkRecon; exit }
 if ($Sentry)        { Write-Header; Invoke-SentryMonitor -AutoPanic:$AutoPanic -SinglePass:$SinglePass; exit }
 if ($Mullvad)       { Write-Header; Invoke-MullvadPartner -Action "status"; exit }
-if ($Browser)       { Write-Header; Harden-Browsers; exit }
+if ($Browser)       { Write-Header; Protect-Browsers; exit }
 if ($LaunchBrowser) { Write-Header; Start-HardenedBrowser; exit }
 if ($HardenAll)     { Write-Header; Invoke-HardenAll; exit }
 if ($WipeTraces)    { Write-Header; Invoke-TraceWipe; exit }
@@ -767,7 +767,7 @@ if ($Jitter)        { Write-Header; Invoke-TimestampJitter -TargetPath $Jitter; 
 if ($TestVoice)     { Test-VoiceOutput; exit }
 if ($Intro)         { Invoke-CyberIntro; exit }
 if ($VmShield)      { Write-Header; Start-VmShieldSentinel -SinglePass:$SinglePass; exit }
-if ($AuditVm)       { Write-Header; Write-Host "`n  === VIRTUAL MACHINE LEAK & ISOLATION AUDIT ===" -ForegroundColor Cyan; Audit-VirtualBoxConfigurations | Format-Table -AutoSize; exit }
+if ($AuditVm)       { Write-Header; Write-Host "`n  === VIRTUAL MACHINE LEAK & ISOLATION AUDIT ===" -ForegroundColor Cyan; Get-VirtualBoxConfigRisk | Format-Table -AutoSize; exit }
 
 Clear-Host
 Write-Header
@@ -815,20 +815,20 @@ while ($sessionActive) {
         "^(2|telemetry|shield)$" {
             Write-Host ""
             Save-OpSecState -Description "telemetry" | Out-Null
-            Harden-Telemetry
+            Protect-Telemetry
             Write-Host ""
         }
         "^(3|anon|anonymity)$" {
             Write-Host ""
             Save-OpSecState -Description "anon" | Out-Null
-            Harden-Anonymity
+            Protect-Anonymity
             Write-Host ""
         }
         "^(4|net|network)$" {
             Write-Host ""
             Save-OpSecState -Description "net" | Out-Null
-            Harden-NetworkOpSec
-            Harden-FirewallEgress
+            Protect-NetworkOpSec
+            Protect-FirewallEgress
             Write-Host ""
         }
         "^(5|harden|harden-all|all)$" {
@@ -862,7 +862,7 @@ while ($sessionActive) {
         }
         "^hwid(\s+(status|audit|check))?$" {
             Write-Host ""
-            Audit-HardwareIdentity | Format-Table -AutoSize
+            Get-HardwareIdentity | Format-Table -AutoSize
             Write-Host ""
         }
         "^hwid\s+(randomize|spoof|new)$" {
@@ -929,7 +929,7 @@ while ($sessionActive) {
         "^browser(\s+harden)?$" {
             Write-Host ""
             Save-OpSecState -Description "browser" | Out-Null
-            Harden-Browsers
+            Protect-Browsers
             Write-Host ""
         }
         "^scrub$" {
@@ -937,7 +937,7 @@ while ($sessionActive) {
         }
         "^forensic(-check|s)?$" {
             Write-Host ""
-            Audit-DeletedFootprint
+            Get-DeletedFootprint
             Write-Host ""
         }
         "^(wipe-pca|pca)$" {
@@ -982,7 +982,7 @@ while ($sessionActive) {
         }
         "^sentry\s+(status|posture|audit)$" {
             Write-Host ""
-            Audit-SentryPosture | Format-Table -AutoSize
+            Get-SentryPosture | Format-Table -AutoSize
             Write-Host ""
         }
         "^chameleon(\s+(-purge|purge))?$" {
@@ -1031,17 +1031,17 @@ while ($sessionActive) {
         }
         "^canary(\s+(status|audit|check))?$" {
             Write-Host ""
-            Audit-CanaryTraps | Format-Table -AutoSize
+            Get-CanaryTrapState | Format-Table -AutoSize
             Write-Host ""
         }
         "^canary\s+(drop|deploy|plant|arm)$" {
             Write-Host ""
-            Deploy-CanaryTraps
+            Install-CanaryTraps
             Write-Host ""
         }
         "^canary\s+(purge|clean|wipe|remove)$" {
             Write-Host ""
-            Purge-CanaryTraps
+            Remove-CanaryTraps
             Write-Host ""
         }
         "^(wipe-ram|ram)$" {
@@ -1062,7 +1062,7 @@ while ($sessionActive) {
         "^usb\s+deploy(\s+(\S+))?$" {
             $tDrv = $Matches[2]
             Write-Host ""
-            Deploy-UsbOpSec -TargetDrive $tDrv
+            Install-UsbOpSec -TargetDrive $tDrv
             Write-Host ""
         }
         "^usb\s+shield(\s+(on|off|status|enable|disable))?$" {
@@ -1082,7 +1082,7 @@ while ($sessionActive) {
         }
         "^vm\s+(fix|harden|harden-all)(\s+(\S+))?$" {
             $t = if ($Matches[3]) { $Matches[3] } else { "ALL" }
-            Harden-VirtualBoxVMs -TargetVM $t
+            Protect-VirtualBoxVMs -TargetVM $t
         }
         "^vm\s+ram\s+(\S+)\s+(\d+)$" {
             Set-VmRam -VmName $Matches[1] -RamMb ([int]$Matches[2])
@@ -1092,7 +1092,7 @@ while ($sessionActive) {
         }
         "^vm\s+(audit|check|scan)$" {
             Write-Host "`n  === VIRTUAL MACHINE CONFIG AUDIT ===" -ForegroundColor Cyan
-            $findings = Audit-VirtualBoxConfigurations
+            $findings = Get-VirtualBoxConfigRisk
             if ($findings.Count -eq 0) {
                 Write-Host "  [PASS] No high-risk VM leak configurations found.`n" -ForegroundColor Green
             } else {
@@ -1103,7 +1103,7 @@ while ($sessionActive) {
         "^vm\s+stealth(\s+(on|enable|arm))?$" {
             Write-Host ""
             Enable-VmHostStealthFirewall | Out-Null
-            Harden-VirtualAdapters
+            Protect-VirtualAdapters
             Write-Host "  [+] VM Host Stealth firewall armed: Host listening ports hidden from guests.`n" -ForegroundColor Green
         }
         "^vm\s+stealth\s+(off|disable|disarm)$" {

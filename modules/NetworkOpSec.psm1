@@ -1,6 +1,6 @@
 # Shared helpers Test-AdminPrivilege / Test-IsWindowsOS live in Common.psm1
 
-function Audit-NetworkOpSec {
+function Get-NetworkPosture {
     $results = @()
 
     if (Test-IsWindowsOS) {
@@ -213,7 +213,7 @@ function Audit-NetworkOpSec {
     return $results
 }
 
-function Harden-NetworkOpSec {
+function Protect-NetworkOpSec {
     $isAdmin = Test-AdminPrivilege
 
     if (Test-IsWindowsOS) {
@@ -318,4 +318,4 @@ function Harden-NetworkOpSec {
     }
 }
 
-Export-ModuleMember -Function Audit-NetworkOpSec, Harden-NetworkOpSec
+Export-ModuleMember -Function Get-NetworkPosture, Protect-NetworkOpSec

@@ -14,7 +14,7 @@ function Get-PSHistoryFile {
     return Join-Path $uHome ".local/share/powershell/PSReadLine/ConsoleHost_history.txt"
 }
 
-function Audit-Traces {
+function Get-TraceArtifact {
     $results = @()
     $psHistoryPath = Get-PSHistoryFile
     $psCount = 0
@@ -177,7 +177,7 @@ function Audit-Traces {
     return $results
 }
 
-function Shred-FileSecurely {
+function Remove-FileSecurely {
     param([string]$FilePath)
     if (Test-Path $FilePath -ErrorAction SilentlyContinue) {
         try {
@@ -195,7 +195,7 @@ function Shred-FileSecurely {
     return $false
 }
 
-function Shred-PowerShellHistory {
+function Clear-PowerShellHistory {
     try {
         Set-PSReadLineOption -HistorySaveStyle SaveNothing -ErrorAction SilentlyContinue
         [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory()
@@ -203,7 +203,7 @@ function Shred-PowerShellHistory {
 
     $psHistoryPath = Get-PSHistoryFile
     if (Test-Path $psHistoryPath -ErrorAction SilentlyContinue) {
-        if (Shred-FileSecurely -FilePath $psHistoryPath) {
+        if (Remove-FileSecurely -FilePath $psHistoryPath) {
             Write-Host "  ok  shredded $psHistoryPath" -ForegroundColor Green
         } else {
             Write-Host "  !!  failed to shred $psHistoryPath" -ForegroundColor Yellow
@@ -216,7 +216,7 @@ function Shred-PowerShellHistory {
     foreach ($shFile in @(".bash_history", ".zsh_history", ".python_history", ".node_repl_history", ".lesshst", ".viminfo", ".wget-hsts")) {
         $p = Join-Path $uHome $shFile
         if (Test-Path $p -ErrorAction SilentlyContinue) {
-            if (Shred-FileSecurely -FilePath $p) {
+            if (Remove-FileSecurely -FilePath $p) {
                 Write-Host "  ok  shredded $p" -ForegroundColor Green
             }
         }
@@ -343,7 +343,7 @@ function Clear-ExplorerTraces {
         foreach ($dp in @("$env:LOCALAPPDATA\CrashDumps", "$env:LOCALAPPDATA\Microsoft\Windows\WER\ReportArchive", "$env:LOCALAPPDATA\Microsoft\Windows\WER\ReportQueue", "$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue")) {
             if (Test-Path $dp -ErrorAction SilentlyContinue) {
                 Get-ChildItem -Path $dp -Force -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
-                    Shred-FileSecurely -FilePath $_.FullName | Out-Null
+                    Remove-FileSecurely -FilePath $_.FullName | Out-Null
                 }
             }
         }
@@ -385,7 +385,7 @@ function Clear-ExplorerTraces {
         $uHome = Get-UserHome
         $recentXbel = Join-Path $uHome ".local/share/recently-used.xbel"
         if (Test-Path $recentXbel -ErrorAction SilentlyContinue) {
-            Shred-FileSecurely -FilePath $recentXbel | Out-Null
+            Remove-FileSecurely -FilePath $recentXbel | Out-Null
             Write-Host "  ok  shredded $recentXbel" -ForegroundColor Green
         }
         if ($IsMacOS) {
@@ -713,7 +713,7 @@ function Invoke-PanicProtocol {
         Write-Host "  ok  severed Wi-Fi, engaged Mullvad lockdown, and flushed ARP/DNS/routes" -ForegroundColor Green
 
         # 3. Obliterate runtime artifacts & execution logs
-        Shred-PowerShellHistory
+        Clear-PowerShellHistory
         Clear-ExplorerTraces
         Invoke-ShellBagsSanitize
         Invoke-PcaWipe
@@ -747,7 +747,7 @@ function Invoke-PanicProtocol {
     }
 }
 
-function Audit-DeletedFootprint {
+function Get-DeletedFootprint {
     Write-Host "  -- forensic inspection of pre-deleted artifacts" -ForegroundColor Cyan
     
     if (Test-IsWindowsOS) {
@@ -1043,8 +1043,8 @@ function Invoke-SelfDestruct {
         }
     }
 
-    if (Get-Command Purge-CanaryTraps -ErrorAction SilentlyContinue) {
-        Purge-CanaryTraps | Out-Null
+    if (Get-Command Remove-CanaryTraps -ErrorAction SilentlyContinue) {
+        Remove-CanaryTraps | Out-Null
     }
 
     Write-Host "  [*] Step 3/5: Cryptographically zeroing all WinOpSec codebase modules..." -ForegroundColor Red
@@ -1082,5 +1082,5 @@ $shutdownCmd
     exit 0
 }
 
-Export-ModuleMember -Function Audit-Traces, Shred-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Audit-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize, Invoke-RamSanitize, Invoke-TimestampJitter, Invoke-SelfDestruct
+Export-ModuleMember -Function Get-TraceArtifact, Clear-PowerShellHistory, Clear-ExplorerTraces, Invoke-MetadataScrub, Invoke-PanicProtocol, Get-DeletedFootprint, Invoke-DeepSanitize, Clear-WindowsEventLogs, Invoke-PcaWipe, Invoke-ShellBagsSanitize, Invoke-SrumNeutralize, Invoke-SearchIndexWipe, Invoke-StealthEventLogBlind, Invoke-TokenSanitize, Invoke-ScreenshotCacheWipe, Invoke-RegistryLogSanitize, Invoke-RamSanitize, Invoke-TimestampJitter, Invoke-SelfDestruct
 

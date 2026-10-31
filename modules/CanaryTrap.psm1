@@ -80,7 +80,7 @@ function Get-CanaryManifestPath {
     return (Join-Path $backupDir "canary_manifest.json")
 }
 
-function Deploy-CanaryTraps {
+function Install-CanaryTraps {
     [CmdletBinding()]
     param([switch]$Silent)
 
@@ -150,7 +150,7 @@ function Deploy-CanaryTraps {
     return $deployed
 }
 
-function Audit-CanaryTraps {
+function Get-CanaryTrapState {
     $baits = Get-CanaryBaitPaths
     $results = @()
     $manifest = $null
@@ -222,12 +222,12 @@ function Audit-CanaryTraps {
 }
 
 function Test-CanaryTrip {
-    $traps = Audit-CanaryTraps
+    $traps = Get-CanaryTrapState
     $tripped = @($traps | Where-Object { $_.State -eq "TRIPPED" })
     return $tripped
 }
 
-function Purge-CanaryTraps {
+function Remove-CanaryTraps {
     [CmdletBinding()]
     param()
 
@@ -259,4 +259,4 @@ function Purge-CanaryTraps {
     Write-Host "  ok  $purged canary traps removed.`n" -ForegroundColor Green
 }
 
-Export-ModuleMember -Function Get-CanaryBaitPaths, Deploy-CanaryTraps, Audit-CanaryTraps, Test-CanaryTrip, Purge-CanaryTraps
+Export-ModuleMember -Function Get-CanaryBaitPaths, Install-CanaryTraps, Get-CanaryTrapState, Test-CanaryTrip, Remove-CanaryTraps

@@ -492,7 +492,7 @@ function Invoke-SentryDefensiveAction {
     }
 }
 
-function Audit-SentryPosture {
+function Get-SentryPosture {
     $results = @()
 
     $gw = Get-DefaultGatewayInfo
@@ -540,8 +540,8 @@ function Audit-SentryPosture {
         Details = "$($usbSet.Count) baseline USB devices registered"
     }
 
-    if (Get-Command Audit-CanaryTraps -ErrorAction SilentlyContinue) {
-        $canaryTraps = Audit-CanaryTraps
+    if (Get-Command Get-CanaryTrapState -ErrorAction SilentlyContinue) {
+        $canaryTraps = Get-CanaryTrapState
         $trippedCount = @($canaryTraps | Where-Object { $_.State -eq "TRIPPED" }).Count
         $armedCount = @($canaryTraps | Where-Object { $_.State -eq "ARMED" }).Count
         $status = if ($trippedCount -gt 0) { "FAIL" } elseif ($armedCount -gt 0) { "HARDENED" } else { "CONFIGURABLE" }
@@ -736,4 +736,4 @@ function Invoke-SentryMonitor {
     }
 }
 
-Export-ModuleMember -Function Audit-SentryPosture, Invoke-SentryMonitor, Test-ArpPoisoning, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Test-DnsHijack, Test-ReverseShellIntegrity, Test-WifiPerimeter
+Export-ModuleMember -Function Get-SentryPosture, Invoke-SentryMonitor, Test-ArpPoisoning, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Test-DnsHijack, Test-ReverseShellIntegrity, Test-WifiPerimeter

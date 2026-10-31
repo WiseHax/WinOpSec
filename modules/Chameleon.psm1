@@ -8,7 +8,7 @@ function Get-DecoyDocumentDirectory {
     return $docDir
 }
 
-function Audit-ChameleonState {
+function Get-ChameleonState {
     $results = @()
     if (-not (Test-IsWindowsOS)) { return $results }
 
@@ -113,4 +113,4 @@ function Invoke-ChameleonNoise {
     Write-Host "  tip: use 'chameleon -purge' anytime to remove synthetic camouflage.`n" -ForegroundColor DarkGray
 }
 
-Export-ModuleMember -Function Audit-ChameleonState, Invoke-ChameleonNoise
+Export-ModuleMember -Function Get-ChameleonState, Invoke-ChameleonNoise

@@ -191,7 +191,7 @@ function Disable-VmHostStealthFirewall {
     } catch {}
 }
 
-function Harden-VirtualAdapters {
+function Protect-VirtualAdapters {
     [CmdletBinding()]
     param()
 
@@ -275,7 +275,7 @@ function Get-VirtualBoxInventory {
     return $inventory
 }
 
-function Audit-VirtualBoxConfigurations {
+function Get-VirtualBoxConfigRisk {
     [CmdletBinding()]
     param()
 
@@ -337,7 +337,7 @@ function Audit-VirtualBoxConfigurations {
 }
 
 # 1-Click Auto-Harden for VirtualBox VMs
-function Harden-VirtualBoxVMs {
+function Protect-VirtualBoxVMs {
     [CmdletBinding()]
     param(
         [string]$TargetVM = "ALL",
@@ -428,7 +428,7 @@ function Harden-VirtualBoxVMs {
     # Also arm host stealth firewall
     if (Test-AdminPrivilege) {
         Enable-VmHostStealthFirewall | Out-Null
-        Harden-VirtualAdapters
+        Protect-VirtualAdapters
         Write-Host "  [+] Host Stealth Isolation Firewall ARMED." -ForegroundColor Green
     } else {
         Write-Host "  [i] Run as Administrator to arm Host-Stealth isolation firewall rules." -ForegroundColor Yellow
@@ -518,7 +518,7 @@ function Show-VmInventory {
     Write-Host ""
 }
 
-function Audit-VmShieldPosture {
+function Get-VmShieldPosture {
     [CmdletBinding()]
     param()
 
@@ -558,7 +558,7 @@ function Audit-VmShieldPosture {
     }
 
     # 3. VirtualBox Config Audit
-    $vmFindings = Audit-VirtualBoxConfigurations
+    $vmFindings = Get-VirtualBoxConfigRisk
     $critCount = ($vmFindings | Where-Object { $_.Risk -eq "CRITICAL" }).Count
     $highCount = ($vmFindings | Where-Object { $_.Risk -eq "HIGH" }).Count
 
@@ -665,7 +665,7 @@ function Start-VmShieldSentinel {
 
     if ($AutoHarden -and (Test-AdminPrivilege)) {
         $armed = Enable-VmHostStealthFirewall
-        Harden-VirtualAdapters
+        Protect-VirtualAdapters
         if ($armed) {
             Write-Host "  [+] Host Stealth Shield ARMED: Guest-to-Host inbound probing blocked." -ForegroundColor Green
         }
@@ -787,13 +787,13 @@ function Show-VmHub {
 
         switch -Regex ($hubCmd) {
             "^(1|fix|harden|harden-all|all)$" {
-                Harden-VirtualBoxVMs
+                Protect-VirtualBoxVMs
                 Write-Host "Press Enter to continue..." -ForegroundColor Gray
                 [void][Console]::ReadLine()
             }
             "^(2|audit|scan)$" {
                 Write-Host ""
-                $findings = Audit-VirtualBoxConfigurations
+                $findings = Get-VirtualBoxConfigRisk
                 if ($findings.Count -eq 0) {
                     Write-Host "  [PASS] No leak risks found in any VM configs.`n" -ForegroundColor Green
                 } else {
@@ -807,7 +807,7 @@ function Show-VmHub {
             }
             "^(4|stealth\s+on|stealth)$" {
                 Enable-VmHostStealthFirewall | Out-Null
-                Harden-VirtualAdapters
+                Protect-VirtualAdapters
                 Write-Host "  [+] Host stealth isolation firewall armed." -ForegroundColor Green
                 Start-Sleep -Seconds 1
             }
@@ -840,12 +840,12 @@ Export-ModuleMember -Function `
     Show-VmInventory, `
     Enable-VmHostStealthFirewall, `
     Disable-VmHostStealthFirewall, `
-    Harden-VirtualAdapters, `
-    Harden-VirtualBoxVMs, `
+    Protect-VirtualAdapters, `
+    Protect-VirtualBoxVMs, `
     Set-VmRam, `
     Set-VmClipboard, `
-    Audit-VirtualBoxConfigurations, `
-    Audit-VmShieldPosture, `
+    Get-VirtualBoxConfigRisk, `
+    Get-VmShieldPosture, `
     Start-VmShieldSentinel, `
     Optimize-HostMemory, `
     Show-VmHub

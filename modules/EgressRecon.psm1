@@ -19,7 +19,7 @@ function Get-MullvadCli {
     return $null
 }
 
-function Audit-VpnAndEgress {
+function Get-VpnEgressPosture {
     $results = @()
 
     # 1. Detect Active VPN / Tunnel Adapter (Mullvad, ProtonVPN, WireGuard, OpenVPN, etc.)
@@ -233,7 +233,7 @@ function Invoke-MullvadPartner {
 
 function Invoke-NetworkRecon {
     Write-Host "  -- active vpn & tunnel status" -ForegroundColor Cyan
-    $vpnChecks = Audit-VpnAndEgress
+    $vpnChecks = Get-VpnEgressPosture
     foreach ($c in $vpnChecks) {
         $tag = if ($c.Status -eq "HARDENED") { "PASS" } elseif ($c.Status -eq "CONFIGURABLE") { "INFO" } else { "FAIL" }
         $col = if ($c.Status -eq "HARDENED") { "Green" } elseif ($c.Status -eq "CONFIGURABLE") { "Yellow" } else { "Red" }
@@ -281,7 +281,7 @@ function Invoke-NetworkRecon {
     } catch {}
 }
 
-function Harden-FirewallEgress {
+function Protect-FirewallEgress {
     if (-not (Test-AdminPrivilege)) {
         Write-Host "  --  skipped firewall egress rules (requires admin/root)" -ForegroundColor DarkYellow
         return
@@ -307,4 +307,4 @@ function Harden-FirewallEgress {
     }
 }
 
-Export-ModuleMember -Function Get-MullvadCli, Audit-VpnAndEgress, Invoke-MullvadPartner, Invoke-NetworkRecon, Harden-FirewallEgress
+Export-ModuleMember -Function Get-MullvadCli, Get-VpnEgressPosture, Invoke-MullvadPartner, Invoke-NetworkRecon, Protect-FirewallEgress

@@ -1,6 +1,6 @@
 # Shared helpers Test-AdminPrivilege / Test-IsWindowsOS live in Common.psm1
 
-function Audit-HardwareIdentity {
+function Get-HardwareIdentity {
     $results = @()
     if (-not (Test-IsWindowsOS)) {
         return $results
@@ -107,4 +107,4 @@ function Invoke-HwIdRandomize {
     }
 }
 
-Export-ModuleMember -Function Audit-HardwareIdentity, Invoke-HwIdRandomize
+Export-ModuleMember -Function Get-HardwareIdentity, Invoke-HwIdRandomize

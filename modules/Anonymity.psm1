@@ -1,6 +1,6 @@
 # Shared helpers Test-AdminPrivilege / Test-IsWindowsOS live in Common.psm1
 
-function Audit-Anonymity {
+function Get-AnonymityPosture {
     $results = @()
 
     if (Test-IsWindowsOS) {
@@ -125,7 +125,7 @@ function Audit-Anonymity {
     return $results
 }
 
-function Harden-Anonymity {
+function Protect-Anonymity {
     $isAdmin = Test-AdminPrivilege
 
     if (Test-IsWindowsOS) {
@@ -517,4 +517,4 @@ function Invoke-UsbHistoryScrub {
     }
 }
 
-Export-ModuleMember -Function Audit-Anonymity, Harden-Anonymity, Invoke-MacSpoof, Invoke-NetworkListScrub, Invoke-UsbHistoryScrub
+Export-ModuleMember -Function Get-AnonymityPosture, Protect-Anonymity, Invoke-MacSpoof, Invoke-NetworkListScrub, Invoke-UsbHistoryScrub
