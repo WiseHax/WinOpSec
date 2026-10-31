@@ -8,20 +8,32 @@ on:
 
 jobs:
   test:
-    name: Lint & Test (Windows)
+    name: Lint & Test (${{ matrix.name }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PowerShell 7
+            shell: pwsh
+          - name: Windows PowerShell 5.1
+            shell: powershell
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Pester & PSScriptAnalyzer
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck
           Install-Module PSScriptAnalyzer -Force
 
+      - name: Validate module manifest
+        shell: ${{ matrix.shell }}
+        run: Test-ModuleManifest ./WinOpSec.psd1
+
       - name: Import all modules (parse check)
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           $ErrorActionPreference = 'Stop'
           Get-ChildItem modules/*.psm1 | ForEach-Object {
@@ -30,7 +42,7 @@ jobs:
           }
 
       - name: PSScriptAnalyzer
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Warning,Error
           $results | Format-Table -AutoSize
@@ -39,7 +51,7 @@ jobs:
           }
 
       - name: Run Pester tests
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           $cfg = New-PesterConfiguration
           $cfg.Run.Path = './tests'

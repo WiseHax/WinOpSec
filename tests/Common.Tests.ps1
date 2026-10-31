@@ -67,6 +67,44 @@ Describe 'Set-HardenedValue' {
     }
 }
 
+Describe 'Change log (Get-OpSecLogPath / Write-OpSecLog)' {
+    BeforeAll {
+        $script:LogPath = Get-OpSecLogPath
+        $script:LogExisted = Test-Path $script:LogPath
+        $script:LogBefore = if ($script:LogExisted) { Get-Content $script:LogPath -Raw } else { $null }
+    }
+    AfterAll {
+        # Restore the log to its pre-test state so tests leave no trace.
+        if ($script:LogExisted) {
+            Set-Content -Path $script:LogPath -Value $script:LogBefore -NoNewline -Encoding UTF8
+        } elseif (Test-Path $script:LogPath) {
+            Remove-Item $script:LogPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'returns a path ending in the change log name' {
+        $script:LogPath | Should -Match 'winopsec_changes\.log$'
+    }
+
+    It 'appends an APPLIED line for a verified result' {
+        Write-OpSecLog -Group 'pester' -Results @(
+            [PSCustomObject]@{ Setting = 'probe'; Applied = $true; Error = $null }
+        )
+        (Get-Content $script:LogPath -Raw) | Should -Match 'APPLIED .+\[pester\] probe'
+    }
+
+    It 'records the reason on a failed result' {
+        Write-OpSecLog -Group 'pester' -Results @(
+            [PSCustomObject]@{ Setting = 'probe2'; Applied = $false; Error = 'mismatch' }
+        )
+        (Get-Content $script:LogPath -Raw) | Should -Match 'FAILED .+probe2 :: mismatch'
+    }
+
+    It 'does nothing and does not throw on an empty result set' {
+        { Write-OpSecLog -Group 'pester' -Results @() } | Should -Not -Throw
+    }
+}
+
 Describe 'Write-HardenGroup' {
     It 'does not throw on an all-applied result set' {
         $results = @(
