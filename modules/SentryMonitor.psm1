@@ -326,9 +326,7 @@ function Test-DnsHijack {
 
     try {
         # Check if Mullvad VPN encrypted tunnel is active
-        $mullvadRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }
-        $mullvadAdapter = Get-NetAdapter -Name "*mullvad*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" }
-        $vpnActive = ($mullvadRoute -ne $null) -or ($mullvadAdapter -ne $null)
+        $vpnActive = Test-MullvadTunnel
 
         # When VPN is active, all DNS queries are encrypted through the tunnel and non-tunnel DNS is blocked by WFP.
         # Local DHCP router addresses on the physical Wi-Fi interface are dormant and not rogue hijackers.

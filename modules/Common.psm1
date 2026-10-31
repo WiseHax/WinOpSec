@@ -17,6 +17,25 @@ function Test-IsWindowsOS {
     return ($env:OS -eq "Windows_NT") -and (-not $IsLinux) -and (-not $IsMacOS)
 }
 
+# True when a Mullvad/WireGuard tunnel appears to own the default route.
+# Checks the Mullvad relay next-hop first, then falls back to a live tunnel
+# adapter so detection still works if the internal gateway IP ever changes.
+function Test-MullvadTunnel {
+    try {
+        $route = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
+                 Where-Object { $_.NextHop -eq "10.64.0.1" }
+        if ($route) { return $true }
+    } catch {}
+    try {
+        $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
+            $_.Status -eq 'Up' -and
+            ($_.InterfaceDescription -match '(?i)mullvad|wireguard' -or $_.Name -match '(?i)mullvad|wireguard')
+        }
+        if ($adapter) { return $true }
+    } catch {}
+    return $false
+}
+
 # Set a registry value and VERIFY it by reading it back. Returns a result
 # object instead of blindly printing "ok", so callers can report honestly.
 function Set-HardenedValue {

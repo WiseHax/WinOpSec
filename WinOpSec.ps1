@@ -292,9 +292,9 @@ function Show-TacticalHud {
         $privTag = if ($IsElevated) { "ELEVATED (ROOT/ADMIN)" } else { "UNPRIVILEGED (USER)" }
         $privColor = if ($IsElevated) { "Green" } else { "Yellow" }
         
-        $mullvadRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }
-        $vpnStatus = if ($mullvadRoute) { "LOCKED (MULLVAD ENCRYPTED)" } else { "EXPOSED (RAW/UNENCRYPTED)" }
-        $vpnColor = if ($mullvadRoute) { "Green" } else { "Red" }
+        $mullvadUp = Test-MullvadTunnel
+        $vpnStatus = if ($mullvadUp) { "LOCKED (MULLVAD ENCRYPTED)" } else { "EXPOSED (RAW/UNENCRYPTED)" }
+        $vpnColor = if ($mullvadUp) { "Green" } else { "Red" }
 
         $canaryArmed = 0
         $canaryTripped = 0
@@ -417,7 +417,7 @@ function Show-TacticalHud {
             "^(2|lockdown)$" {
                 Write-Host "`n  [*] applying complete host lockdown..." -ForegroundColor DarkGray
                 Save-OpSecState -Description "pre-lockdown" | Out-Null
-                Harden-All
+                Invoke-HardenAll
                 Write-Host "`n  [+] press Enter to return to HUD..." -ForegroundColor DarkGray
                 [void](Read-Host)
             }
@@ -776,7 +776,7 @@ Show-Menu
 $sessionActive = $true
 while ($sessionActive) {
     $privTag = if ($IsElevated) { "admin" } else { "user" }
-    $vpnTag  = if (Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Where-Object { $_.NextHop -eq "10.64.0.1" }) { "vpn:mullvad" } else { "vpn:off" }
+    $vpnTag  = if (Test-MullvadTunnel) { "vpn:mullvad" } else { "vpn:off" }
     Write-Host "winopsec " -ForegroundColor DarkGray -NoNewline
     Write-Host "[$privTag | $vpnTag] " -ForegroundColor Cyan -NoNewline
     Write-Host "> " -ForegroundColor White -NoNewline
