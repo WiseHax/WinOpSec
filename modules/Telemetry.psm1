@@ -1,6 +1,6 @@
 # Shared helpers Test-AdminPrivilege / Test-IsWindowsOS live in Common.psm1
 
-function Audit-Telemetry {
+function Get-TelemetryPosture {
     $results = @()
 
     if (Test-IsWindowsOS) {
@@ -239,134 +239,66 @@ function Audit-Telemetry {
     return $results
 }
 
-function Harden-Telemetry {
+function Protect-Telemetry {
     $isAdmin = Test-AdminPrivilege
 
     if (Test-IsWindowsOS) {
-        $advPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo"
-        if (-not (Test-Path $advPath)) { New-Item -Path $advPath -Force -ErrorAction SilentlyContinue | Out-Null }
-        Set-ItemProperty -Path $advPath -Name "Enabled" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-        Write-Host "  ok  advertising_id = 0" -ForegroundColor Green
-
-        $cloudPath = "HKCU:\Software\Policies\Microsoft\Windows\CloudContent"
-        if (-not (Test-Path $cloudPath)) { New-Item -Path $cloudPath -Force -ErrorAction SilentlyContinue | Out-Null }
-        Set-ItemProperty -Path $cloudPath -Name "DisableTailoredExperiencesWithDiagnosticData" -Type DWord -Value 1 -Force -ErrorAction SilentlyContinue
-        Write-Host "  ok  tailored_experiences = 0" -ForegroundColor Green
-
-        $searchPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
-        if (-not (Test-Path $searchPath)) { New-Item -Path $searchPath -Force -ErrorAction SilentlyContinue | Out-Null }
-        Set-ItemProperty -Path $searchPath -Name "BingSearchEnabled" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $searchPath -Name "CortanaConsent" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-        Write-Host "  ok  start_menu_bing_search = 0" -ForegroundColor Green
-
-        $expPolicy = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        if (-not (Test-Path $expPolicy)) { New-Item -Path $expPolicy -Force -ErrorAction SilentlyContinue | Out-Null }
-        Set-ItemProperty -Path $expPolicy -Name "NoRecentDocsHistory" -Type DWord -Value 1 -Force -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $expPolicy -Name "ClearRecentDocsOnExit" -Type DWord -Value 1 -Force -ErrorAction SilentlyContinue
-
-        $expAdv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-        if (-not (Test-Path $expAdv)) { New-Item -Path $expAdv -Force -ErrorAction SilentlyContinue | Out-Null }
-        Set-ItemProperty -Path $expAdv -Name "Start_TrackDocs" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $expAdv -Name "Start_TrackProgs" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-        Write-Host "  ok  recent_docs_tracking & jumplists = 0" -ForegroundColor Green
+        # user-scope privacy (no admin needed) — each write is verified by readback
+        $userRes = @()
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0 -Label "advertising_id"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Policies\Microsoft\Windows\CloudContent" -Name "DisableTailoredExperiencesWithDiagnosticData" -Value 1 -Label "tailored_experiences"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Value 0 -Label "bing_search"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Value 0 -Label "cortana_consent"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoRecentDocsHistory" -Value 1 -Label "no_recent_docs"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "ClearRecentDocsOnExit" -Value 1 -Label "clear_recent_docs_on_exit"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackDocs" -Value 0 -Label "track_docs"
+        $userRes += Set-HardenedValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackProgs" -Value 0 -Label "track_progs"
+        Write-HardenGroup -Label "user privacy & recent-docs tracking" -Results $userRes
 
         if ($isAdmin) {
-            $dataColl = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
-            if (-not (Test-Path $dataColl)) { New-Item -Path $dataColl -Force | Out-Null }
-            Set-ItemProperty -Path $dataColl -Name "AllowTelemetry" -Type DWord -Value 0 -Force
-            Set-ItemProperty -Path $dataColl -Name "DoNotShowFeedbackNotifications" -Type DWord -Value 1 -Force
-            Write-Host "  ok  allow_telemetry = 0" -ForegroundColor Green
+            $telRes = @()
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -Label "allow_telemetry"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "DoNotShowFeedbackNotifications" -Value 1 -Label "no_feedback_notifications"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "PublishUserActivities" -Value 0 -Label "publish_user_activities"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "UploadUserActivities" -Value 0 -Label "upload_user_activities"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "AllowClipboardHistory" -Value 0 -Label "clipboard_history"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "AllowCrossDeviceClipboard" -Value 0 -Label "cross_device_clipboard"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "DisableWebSearch" -Value 1 -Label "disable_web_search"
+            $telRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "ConnectedSearchUseWeb" -Value 0 -Label "connected_search_web"
+            Write-HardenGroup -Label "telemetry & activity policy (machine)" -Results $telRes
 
-            $sysPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
-            if (-not (Test-Path $sysPolicy)) { New-Item -Path $sysPolicy -Force | Out-Null }
-            Set-ItemProperty -Path $sysPolicy -Name "PublishUserActivities" -Type DWord -Value 0 -Force
-            Set-ItemProperty -Path $sysPolicy -Name "UploadUserActivities" -Type DWord -Value 0 -Force
-            Set-ItemProperty -Path $sysPolicy -Name "AllowClipboardHistory" -Type DWord -Value 0 -Force
-            Set-ItemProperty -Path $sysPolicy -Name "AllowCrossDeviceClipboard" -Type DWord -Value 0 -Force
+            $credRes = @()
+            $credRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -Name "UseLogonCredential" -Value 0 -Label "wdigest_cleartext"
+            $credRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RestrictAnonymous" -Value 1 -Label "restrict_anonymous"
+            $credRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RestrictAnonymousSAM" -Value 1 -Label "restrict_anonymous_sam"
+            $credRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RunAsPPL" -Value 1 -Label "lsass_runasppl"
+            $credRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LmCompatibilityLevel" -Value 5 -Label "ntlmv2_only"
+            $credRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "CachedLogonsCount" -Value "0" -Type String -Label "cached_logons"
+            $credRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting" -Name "Disabled" -Value 1 -Label "wer_disabled"
+            $credRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -Value 255 -Label "autorun_all_drives"
+            Write-HardenGroup -Label "credential & memory shield" -Results $credRes
 
-            $winSearchPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
-            if (-not (Test-Path $winSearchPolicy)) { New-Item -Path $winSearchPolicy -Force | Out-Null }
-            Set-ItemProperty -Path $winSearchPolicy -Name "DisableWebSearch" -Type DWord -Value 1 -Force
-            Set-ItemProperty -Path $winSearchPolicy -Name "ConnectedSearchUseWeb" -Type DWord -Value 0 -Force
-            Write-Host "  ok  activity_timeline, cloud_clipboard & web_search = 0" -ForegroundColor Green
+            $fwRes = @()
+            $fwRes += Set-HardenedValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE" -Name "DisableExternalDMAUnderLock" -Value 1 -Label "anti_pcileech_dma"
+            $fwRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name "DisableWpbtExecution" -Value 1 -Label "disable_uefi_wpbt"
+            Write-HardenGroup -Label "firmware & DMA guard" -Results $fwRes
 
-            # Memory & Credential Shield (WDigest, LSASS RunAsPPL, NTLMv2-only, CachedLogonsCount=0, AutoRun=0)
-            $wdigestPath = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest"
-            if (-not (Test-Path $wdigestPath)) { New-Item -Path $wdigestPath -Force | Out-Null }
-            Set-ItemProperty -Path $wdigestPath -Name "UseLogonCredential" -Type DWord -Value 0 -Force
+            $memRes = @()
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "ClearPageFileAtShutdown" -Value 1 -Label "clear_pagefile_on_shutdown"
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "DisablePagingExecutive" -Value 1 -Label "disable_paging_executive"
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Label "fast_startup_off"
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "HibernateEnabled" -Value 0 -Label "hibernate_off"
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -Value 0 -Label "prefetch_off"
+            $memRes += Set-HardenedValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnableSuperfetch" -Value 0 -Label "superfetch_off"
+            Write-HardenGroup -Label "anti-forensic memory & paging" -Results $memRes
 
-            $lsaPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
-            if (Test-Path $lsaPath) {
-                Set-ItemProperty -Path $lsaPath -Name "RestrictAnonymous" -Type DWord -Value 1 -Force
-                Set-ItemProperty -Path $lsaPath -Name "RestrictAnonymousSAM" -Type DWord -Value 1 -Force
-                Set-ItemProperty -Path $lsaPath -Name "RunAsPPL" -Type DWord -Value 1 -Force
-                Set-ItemProperty -Path $lsaPath -Name "LmCompatibilityLevel" -Type DWord -Value 5 -Force
+            # SysMain + telemetry services — state verified by Set-ServiceDisabled
+            $svcRes = @()
+            foreach ($s in @("SysMain", "DiagTrack", "dmwappushservice", "WerSvc")) {
+                $svcRes += Set-ServiceDisabled -Name $s
             }
-
-            $winlogonPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-            if (Test-Path $winlogonPath) {
-                Set-ItemProperty -Path $winlogonPath -Name "CachedLogonsCount" -Type String -Value "0" -Force
-            }
-
-            $werPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting"
-            if (-not (Test-Path $werPolicy)) { New-Item -Path $werPolicy -Force | Out-Null }
-            Set-ItemProperty -Path $werPolicy -Name "Disabled" -Type DWord -Value 1 -Force
-
-            $autoRunPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-            if (-not (Test-Path $autoRunPath)) { New-Item -Path $autoRunPath -Force | Out-Null }
-            Set-ItemProperty -Path $autoRunPath -Name "NoDriveTypeAutoRun" -Type DWord -Value 255 -Force
-            Write-Host "  ok  lsass_ppl = 1, ntlmv2_only = 5, wdigest = 0, cached_logons = 0" -ForegroundColor Green
-
-            # Anti-PCILeech & External DMA Physical Port Defense
-            $fvePath = "HKLM:\SOFTWARE\Policies\Microsoft\FVE"
-            if (-not (Test-Path $fvePath)) { New-Item -Path $fvePath -Force | Out-Null }
-            Set-ItemProperty -Path $fvePath -Name "DisableExternalDMAUnderLock" -Type DWord -Value 1 -Force
-            Write-Host "  ok  disable_external_dma_under_lock = 1 (anti-PCILeech physical DMA defense)" -ForegroundColor Green
-
-            # Block UEFI WPBT (Windows Platform Binary Table) firmware-level code injection
-            $sessionMgr = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
-            if (Test-Path $sessionMgr) {
-                Set-ItemProperty -Path $sessionMgr -Name "DisableWpbtExecution" -Type DWord -Value 1 -Force
-                Write-Host "  ok  disable_wpbt_execution = 1 (motherboard firmware backdoor blocked)" -ForegroundColor Green
-            }
-
-            # Anti-Forensic Memory & Execution Tracing Shield (Prefetch, Superfetch, Hibernation, ClearPageFile)
-            $memMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-            if (Test-Path $memMgmt) {
-                Set-ItemProperty -Path $memMgmt -Name "ClearPageFileAtShutdown" -Type DWord -Value 1 -Force
-                Set-ItemProperty -Path $memMgmt -Name "DisablePagingExecutive" -Type DWord -Value 1 -Force
-            }
-            $pwrMgmt = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
-            if (Test-Path $pwrMgmt) {
-                Set-ItemProperty -Path $pwrMgmt -Name "HiberbootEnabled" -Type DWord -Value 0 -Force
-            }
-            $pwrCtl = "HKLM:\SYSTEM\CurrentControlSet\Control\Power"
-            if (Test-Path $pwrCtl) {
-                Set-ItemProperty -Path $pwrCtl -Name "HibernateEnabled" -Type DWord -Value 0 -Force -ErrorAction SilentlyContinue
-            }
-            $pfParams = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
-            if (-not (Test-Path $pfParams)) { New-Item -Path $pfParams -Force | Out-Null }
-            Set-ItemProperty -Path $pfParams -Name "EnablePrefetcher" -Type DWord -Value 0 -Force
-            Set-ItemProperty -Path $pfParams -Name "EnableSuperfetch" -Type DWord -Value 0 -Force
-
-            Get-Service -Name "SysMain" -ErrorAction SilentlyContinue | ForEach-Object {
-                Stop-Service -Name "SysMain" -Force -ErrorAction SilentlyContinue
-                Set-Service -Name "SysMain" -StartupType Disabled -ErrorAction SilentlyContinue
-            }
-
-            try {
-                powercfg /h off 2>$null | Out-Null
-            } catch {}
-            Write-Host "  ok  prefetch = 0, pagefile_clear_on_shutdown = 1, hibernation (hiberfil.sys) = killed" -ForegroundColor Green
-
-            foreach ($s in @("DiagTrack", "dmwappushservice", "WerSvc")) {
-                $svc = Get-Service -Name $s -ErrorAction SilentlyContinue
-                if ($svc) {
-                    Stop-Service -Name $s -Force -ErrorAction SilentlyContinue
-                    Set-Service -Name $s -StartupType Disabled -ErrorAction SilentlyContinue
-                    Write-Host "  ok  service/$s -> disabled" -ForegroundColor Green
-                }
-            }
+            try { powercfg /h off 2>$null | Out-Null } catch {}
+            Write-HardenGroup -Label "telemetry & prefetch services" -Results $svcRes
 
             $tasks = @(
                 "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser",
@@ -376,14 +308,16 @@ function Harden-Telemetry {
                 "\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip",
                 "\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector"
             )
+            $taskOk = 0
             foreach ($t in $tasks) {
                 try {
-                    Disable-ScheduledTask -TaskPath ($t.Substring(0, $t.LastIndexOf("\") + 1)) -TaskName ($t.Substring($t.LastIndexOf("\") + 1)) -ErrorAction SilentlyContinue | Out-Null
+                    Disable-ScheduledTask -TaskPath ($t.Substring(0, $t.LastIndexOf("\") + 1)) -TaskName ($t.Substring($t.LastIndexOf("\") + 1)) -ErrorAction Stop | Out-Null
+                    $taskOk++
                 } catch {}
             }
-            Write-Host "  ok  ceip_scheduled_tasks -> disabled" -ForegroundColor Green
+            Write-Host ("  ok   ceip scheduled tasks ({0}/{1} disabled)" -f $taskOk, $tasks.Count) -ForegroundColor $(if ($taskOk -eq $tasks.Count) { 'Green' } else { 'Yellow' })
         } else {
-            Write-Host "  --  skipped HKLM/services (requires admin)" -ForegroundColor DarkYellow
+            Write-Host "  --   skipped HKLM/services (requires admin)" -ForegroundColor DarkYellow
         }
     } elseif ($IsMacOS) {
         defaults write com.apple.AdLib allowApplePersonalizedAdvertising -bool false 2>$null
@@ -416,4 +350,4 @@ function Harden-Telemetry {
     }
 }
 
-Export-ModuleMember -Function Audit-Telemetry, Harden-Telemetry
+Export-ModuleMember -Function Get-TelemetryPosture, Protect-Telemetry
