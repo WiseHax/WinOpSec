@@ -1,6 +1,6 @@
 # WinOpSec
 
-Operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield, real-time public sentry & intrusion tripwire, kernel memory protection, honeytoken canary traps, and anti-forensics suite.
+Operations security, Mullvad VPN partner integration, browser anti-leak/anti-infostealer shield (incl. session-token-theft detection), real-time public sentry & intrusion tripwire, platform security (VBS/Credential Guard/ASR), kernel memory protection, honeytoken canary traps, tamper-evident self-integrity, and anti-forensics suite.
 
 > For system flowcharts, signal routing, and architectural schematics, see [Architecture Blueprint](docs/BLUEPRINT.md).
 > Before running anything, read the [Threat Model](docs/THREAT-MODEL.md) — what WinOpSec does and does **not** protect against.
@@ -72,11 +72,15 @@ Commands inside `winopsec` console (organized into 5 Operational Pillars):
 - `canary` — audit honeytoken decoy traps (`canary drop` to plant realistic bait files across Desktop, Documents, Downloads; `canary purge` to cleanly remove)
 - `8` / `recon` — live VPN tunnel & DNS leak verification, exposed listening ports (`0.0.0.0`/`::`), and active external TCP sockets
 - `9` / `mac` — on-demand hardware MAC address spoofer for active physical network interfaces (`mac reset` to restore factory MAC)
-- `sentry` — real-time public sentry & 8-vector intrusion tripwire: continuous perimeter monitoring against ARP poisoning/MITM, SYN port scans, rogue DNS injection, microphone/webcam surveillance, unauthorized USB/BadUSB insertions, and honeytoken canary breaches
+- `sentry` — real-time public sentry & intrusion tripwire: continuous perimeter monitoring against ARP poisoning/MITM, SYN port scans, rogue DNS injection, microphone/webcam surveillance, unauthorized USB/BadUSB insertions, honeytoken canary breaches, and browser credential/session-token theft (infostealer access to browser credential stores — the dominant 2026 attack)
   - `sentry -autopanic` — arm sentry with automated countermeasure: automatically severs all network adapters and locks workstation upon detecting critical intrusion or physical USB tampering
   - `sentry status` — query instantaneous perimeter posture and baseline integrity
 - `hwid` — inspect persistent cryptographic machine identifiers (`MachineGuid`, SQM `MachineId`, `BuildGUID`, `ProductId`)
   - `hwid randomize` — generate cryptographically random hardware GUIDs to defeat cross-session device attribution
+- `platform` — audit modern platform defenses: Virtualization-Based Security, Credential Guard, Memory Integrity (HVCI), Attack Surface Reduction rules, TPM 2.0, Secure Boot, and outbound NTLM/SMB exposure (each mapped to CIS / MITRE references)
+  - `platform harden` — enforce curated ASR rules (incl. block LSASS credential theft), audit outbound NTLM, and block outbound SMB 445 (anti-coercion, mitigates CVE-2026-32202 class)
+- `integrity` — verify WinOpSec's own modules against a SHA-256 baseline (supply-chain tamper detection)
+  - `integrity baseline` — record the current trusted hashes
 - `mullvad` — query Mullvad CLI state & cryptographic exit API (`am.i.mullvad.net/json`)
   - `mullvad harden` — state-level lockdown: enforce WFP killswitch (`lockdown-mode on`), Kyber-1024 Quantum-Resistant tunnel, Maybenot DAITA (Anti-AI traffic shaping), WireGuard multihop (dual-country bounce), LAN isolation & IPv6 leak lock
   - `mullvad rotate` — instantly generate & rotate WireGuard public/private keys

@@ -21,7 +21,8 @@ does not attack other systems.
 | Adversary | What WinOpSec does about it | Honest limits |
 |-----------|-----------------------------|---------------|
 | **Same-LAN attacker** (ARP/MITM, rogue DNS, port scan, evil-twin AP) | `sentry` watches ARP baselines, DNS servers, inbound SYN probes, BSSID changes, and can auto-sever the network | Heuristic detection; a careful attacker can evade. Fails safe (alerts, does not silently trust). |
-| **Infostealer / malware reading secrets** | Canary honeytokens trip on access; browser token/vault hardening; LSASS `RunAsPPL`, WDigest-off | Does not remove existing malware. PPL/credential guards need admin and a clean boot. |
+| **Infostealer / session-token theft** (the dominant 2026 attack) | Sentry detects non-browser processes touching browser credential stores and staged DB copies; browser token/vault hardening; canary honeytokens; LSASS `RunAsPPL`, Credential Guard/VBS & ASR "block LSASS theft" rule | Heuristic, not a kernel hook; does not remove existing malware. Prefer FIDO2/passkeys — a stolen session cookie already carries MFA. |
+| **Coercion / NTLM relay** (e.g. CVE-2026-32202 class) | Outbound SMB 445 block, outbound NTLM audit/restrict, SMB signing | Mitigations are host-side; a determined relay on a shared segment may still find other paths. |
 | **Telemetry / tracking by the OS & apps** | Disables Windows telemetry, advertising ID, activity upload, Bing search, Recall/Copilot where policy allows | Microsoft can change/relocate these controls per build; always re-run `-Audit` to confirm. |
 | **Forensic examiner with disk access** | Wipes PCA, ShellBags, SRUM, UserAssist, event logs, browser traces; chameleon decoys | **Not** a guarantee of unrecoverability. See non-goals. |
 | **Physical snatch of an unlocked machine** | `deadman` USB tripwire, `panic`, `vanish` | Depends on the machine being configured and the trigger firing in time. |
@@ -52,6 +53,9 @@ does not attack other systems.
 - Hardening writes are **verified by readback**; unverifiable changes are reported
   as failures, not successes.
 - State is snapshotted to `backups/` before changes so `restore` can revert.
+- Every verified hardening write is recorded to `backups/winopsec_changes.log`.
+- WinOpSec can verify its own code against a SHA-256 baseline (`integrity`) to
+  detect supply-chain tampering of the tool itself.
 - Destructive actions (`wipe`, `panic`, `vanish`, `deadman`) are irreversible and
   guarded by confirmation; test them in a VM first.
 
