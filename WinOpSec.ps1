@@ -43,7 +43,7 @@ param (
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $modulePath = Join-Path $PSScriptRoot "modules"
-foreach ($mod in @("Common.psm1", "BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "UsbOpSec.psm1", "IntroTour.psm1", "VmShield.psm1")) {
+foreach ($mod in @("Common.psm1", "BackupRestore.psm1", "Telemetry.psm1", "Anonymity.psm1", "NetworkOpSec.psm1", "EgressRecon.psm1", "BrowserOpSec.psm1", "AntiForensics.psm1", "SecretsScanner.psm1", "HwIdOpSec.psm1", "DeadManSwitch.psm1", "Chameleon.psm1", "SentryMonitor.psm1", "CanaryTrap.psm1", "UsbOpSec.psm1", "IntroTour.psm1", "VmShield.psm1", "PlatformSecurity.psm1", "IntegrityGuard.psm1")) {
     Import-Module (Join-Path $modulePath $mod) -DisableNameChecking -Force
 }
 
@@ -178,12 +178,32 @@ function Invoke-Audit {
         Write-StatusRow -State $r.Status -Label $r.Check -Detail $r.Details
     }
 
+    Write-Host "`n  platform security (vbs, credential guard, asr, tpm, secure boot)" -ForegroundColor DarkGray
+    $platformResults = Get-PlatformSecurityPosture
+    foreach ($r in $platformResults) {
+        Write-StatusRow -State $r.Status -Label $r.Check -Detail "$($r.Details) [$($r.Ref)]"
+    }
+
+    Write-Host "`n  tool self-integrity (tamper detection)" -ForegroundColor DarkGray
+    $integrityResults = Test-ModuleIntegrity
+    $intModified = @($integrityResults | Where-Object { $_.Status -eq 'FAIL' -or $_.Status -eq 'EXPOSED' })
+    if (@($integrityResults | Where-Object { $_.Status -eq 'CONFIGURABLE' }).Count -gt 0) {
+        Write-StatusRow -State "CONFIGURABLE" -Label "Code integrity baseline" -Detail "not set (run 'integrity baseline')"
+    } elseif ($intModified.Count -eq 0) {
+        Write-StatusRow -State "CLEAN" -Label "Code integrity" -Detail "all $($integrityResults.Count) files verified (SHA256)"
+    } else {
+        foreach ($r in $intModified) {
+            Write-StatusRow -State "EXPOSED" -Label "Integrity: $($r.File)" -Detail $r.Details
+        }
+    }
+
     $scoredEgress = @($egressResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredBrowser = @($browserResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredSentry = @($sentryResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
     $scoredCanaries = @($canaryTraps | Where-Object { $_.State -ne "MISSING" } | ForEach-Object { if ($_.State -eq "ARMED") { "HARDENED" } else { "EXPOSED" } })
     $scoredVm = @($vmShieldResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
-    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status) + $scoredSentry + $scoredCanaries + $scoredVm
+    $scoredPlatform = @($platformResults | Where-Object { $_.Status -ne "CONFIGURABLE" } | ForEach-Object { $_.Status })
+    $allChecks = @($telemetryResults.Status) + @($anonymityResults.Status) + @($networkResults.Status) + $scoredEgress + $scoredBrowser + @($traceResults.Status) + $scoredSentry + $scoredCanaries + $scoredVm + $scoredPlatform
     $passed = ($allChecks | Where-Object { $_ -eq "HARDENED" -or $_ -eq "CLEAN" }).Count
     $total  = $allChecks.Count
     $score  = if ($total -gt 0) { [math]::Round(($passed / $total) * 100, 1) } else { 100 }
@@ -206,6 +226,7 @@ function Invoke-HardenAll {
     Invoke-MullvadPartner -Action "harden"
     Enable-VmHostStealthFirewall | Out-Null
     Protect-VirtualAdapters
+    Protect-PlatformSecurity
     Write-Host "`n  done." -ForegroundColor Green
 }
 
@@ -469,6 +490,8 @@ function Show-Menu {
     Write-Host "      canary          - honeytoken breach traps (desktop, docs, downloads)" -ForegroundColor DarkGray
     Write-Host "      7 / secrets     - scan disk for exposed private keys & .env files" -ForegroundColor DarkGray
     Write-Host "      hwid            - inspect hardware machine guids (machineguid, sqm id)" -ForegroundColor DarkGray
+    Write-Host "      platform        - vbs, credential guard, asr, tpm & secure boot posture" -ForegroundColor DarkGray
+    Write-Host "      integrity       - verify winopsec's own code (tamper check; 'integrity baseline')" -ForegroundColor DarkGray
 
     Write-Host "`n  [2] public wi-fi & sentry (defense)" -ForegroundColor White
     Write-Host "      sentry          - 8-vector defensive tripwire (arp, port scans, canary, mic)" -ForegroundColor Gray
@@ -983,6 +1006,27 @@ while ($sessionActive) {
         "^sentry\s+(status|posture|audit)$" {
             Write-Host ""
             Get-SentryPosture | Format-Table -AutoSize
+            Write-Host ""
+        }
+        "^(platform|vbs|credguard|asr)(\s+(status|audit))?$" {
+            Write-Host ""
+            Get-PlatformSecurityPosture | Format-Table Check, Status, Details, Ref -AutoSize
+            Write-Host ""
+        }
+        "^(platform|vbs|asr)\s+(harden|protect|fix)$" {
+            Write-Host ""
+            Save-OpSecState -Description "platform" | Out-Null
+            Protect-PlatformSecurity
+            Write-Host ""
+        }
+        "^integrity(\s+(status|check|verify))?$" {
+            Write-Host ""
+            Test-ModuleIntegrity | Format-Table File, Status, Details -AutoSize
+            Write-Host ""
+        }
+        "^integrity\s+(baseline|record|set)$" {
+            Write-Host ""
+            New-IntegrityBaseline
             Write-Host ""
         }
         "^chameleon(\s+(-purge|purge))?$" {
