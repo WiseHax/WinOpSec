@@ -461,6 +461,64 @@ function Test-ReverseShellIntegrity {
     return $alerts
 }
 
+# Vector 9: browser credential / session-token theft (the dominant 2026 attack).
+# Read-only heuristics: (a) a non-browser process whose command line references a
+# browser credential store, and (b) copies of locked credential DBs dropped in
+# temp/download locations (classic infostealer staging). No handle hooking.
+function Test-BrowserCredentialTheft {
+    $alerts = @()
+    if (-not (Test-IsWindowsOS)) { return $alerts }
+
+    $browserProcs = @('chrome','msedge','brave','firefox','opera','opera_gx','vivaldi',
+                      'mullvadbrowser','tor','browser','librewolf','thorium','iexplore')
+    $credArtifacts = @('Login Data','Cookies','Web Data','key4.db','logins.json','\\tdata')
+
+    # (a) non-browser process referencing a browser credential artifact in its args
+    try {
+        $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+                 Where-Object { $_.CommandLine }
+        foreach ($p in $procs) {
+            $base = ($p.Name -replace '\.exe$','').ToLower()
+            if ($browserProcs -contains $base) { continue }
+            foreach ($art in $credArtifacts) {
+                if ($p.CommandLine -match [regex]::Escape($art)) {
+                    $alerts += [PSCustomObject]@{
+                        Severity = 'CRITICAL'
+                        Type     = 'Credential Theft'
+                        Target   = "$($p.Name) (PID $($p.ProcessId))"
+                        Detail   = "Non-browser process accessing browser credential store '$art'"
+                    }
+                    break
+                }
+            }
+        }
+    } catch {}
+
+    # (b) copies of browser credential DBs staged outside their profile dir
+    try {
+        $stageDirs = @($env:TEMP, (Join-Path $env:USERPROFILE 'Downloads'),
+                       (Join-Path $env:USERPROFILE 'AppData\Local\Temp')) |
+                     Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+        $names = @('Login Data','Cookies','key4.db','logins.json')
+        foreach ($d in $stageDirs) {
+            foreach ($n in $names) {
+                Get-ChildItem -LiteralPath $d -Filter $n -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -gt (Get-Date).AddHours(-24) } |
+                ForEach-Object {
+                    $alerts += [PSCustomObject]@{
+                        Severity = 'CRITICAL'
+                        Type     = 'Credential Theft'
+                        Target   = $_.Name
+                        Detail   = "Staged copy of browser credential DB in $d (infostealer IOC)"
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    return $alerts
+}
+
 function Invoke-SentryDefensiveAction {
     param(
         [array]$Threats,
@@ -551,6 +609,13 @@ function Get-SentryPosture {
         }
     }
 
+    $credTheft = Test-BrowserCredentialTheft
+    $results += [PSCustomObject]@{
+        Status  = if ($credTheft.Count -eq 0) { "CLEAN" } else { "FAIL" }
+        Check   = "Browser Credential/Token Theft"
+        Details = if ($credTheft.Count -eq 0) { "No infostealer access to browser credential stores" } else { "$($credTheft.Count) credential-theft indicator(s) detected!" }
+    }
+
     return $results
 }
 
@@ -627,6 +692,9 @@ function Invoke-SentryMonitor {
 
         $revThreats = Test-ReverseShellIntegrity
         $allThreats += $revThreats
+
+        $credTheftThreats = Test-BrowserCredentialTheft
+        $allThreats += $credTheftThreats
 
         $wifiThreats = Test-WifiPerimeter -CurrentBssidRef $bssidRef
         $allThreats += $wifiThreats
@@ -734,4 +802,4 @@ function Invoke-SentryMonitor {
     }
 }
 
-Export-ModuleMember -Function Get-SentryPosture, Invoke-SentryMonitor, Test-ArpPoisoning, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Test-DnsHijack, Test-ReverseShellIntegrity, Test-WifiPerimeter
+Export-ModuleMember -Function Get-SentryPosture, Invoke-SentryMonitor, Test-ArpPoisoning, Test-PortScanActivity, Test-ActiveEavesdropping, Test-UsbPerimeter, Test-DnsHijack, Test-ReverseShellIntegrity, Test-WifiPerimeter, Test-BrowserCredentialTheft
